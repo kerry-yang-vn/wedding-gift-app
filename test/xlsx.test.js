@@ -64,12 +64,12 @@ test('시트 내용: 선택한 측 데이터와 SUM 합계 수식(캐시값 포�
   const sheet = textOf(unzip(build(sample(), 'groom'))['xl/worksheets/sheet1.xml']);
   assert.ok(sheet.includes('홍길동') && sheet.includes('이철수'));
   assert.ok(sheet.includes('신랑측 합계') && sheet.includes('2명'));
-  assert.ok(sheet.includes('<f>SUM(D2:D3)</f><v>180000</v>'));
-  assert.ok(sheet.includes('<f>SUM(E2:E3)</f><v>2</v>'), '대인 합계');
-  assert.ok(sheet.includes('<f>SUM(F2:F3)</f><v>1</v>'), '소인 합계');
-  assert.ok(sheet.includes('<f>SUM(G2:G3)</f><v>3</v>'), '식권 합계');
-  assert.ok(sheet.includes('<c r="E2" s="3"><v>2</v></c><c r="F2" s="3"><v>1</v></c><c r="G2" s="3"><v>3</v></c>'), '행별 대인/소인/합계');
-  assert.ok(sheet.includes('<autoFilter ref="A1:H3"/>'));
+  assert.ok(sheet.includes('<f>SUM(E2:E3)</f><v>180000</v>'));
+  assert.ok(sheet.includes('<f>SUM(F2:F3)</f><v>2</v>'), '대인 합계');
+  assert.ok(sheet.includes('<f>SUM(G2:G3)</f><v>1</v>'), '소인 합계');
+  assert.ok(sheet.includes('<f>SUM(H2:H3)</f><v>3</v>'), '식권 합계');
+  assert.ok(sheet.includes('<c r="F2" s="3"><v>2</v></c><c r="G2" s="3"><v>1</v></c><c r="H2" s="3"><v>3</v></c>'), '행별 대인/소인/합계');
+  assert.ok(sheet.includes('<autoFilter ref="A1:I3"/>'));
   assert.ok(sheet.includes('식권 대인(장)') && sheet.includes('식권 소인(장)') && sheet.includes('식권 합계(장)'));
 });
 
@@ -104,7 +104,7 @@ test('접수시각은 엑셀 날짜 값(로컬 시각 기준)으로 저장되고
   const secondsOfDay = Math.floor((serial - Math.floor(serial)) * 86400);
   assert.equal(secondsOfDay, 13 * 3600 + 5 * 60 + 9); // 13:05:09 — 1초 적게 내림되지 않는다
   const sheet = textOf(unzip(build(sample(), 'groom'))['xl/worksheets/sheet1.xml']);
-  assert.ok(sheet.includes(`<c r="H2" s="4"><v>${X.excelSerial(T0)}</v></c>`));
+  assert.ok(sheet.includes(`<c r="I2" s="4"><v>${X.excelSerial(T0)}</v></c>`));
   assert.equal(X.excelSerial('invalid'), null);
 });
 

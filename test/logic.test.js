@@ -5,9 +5,9 @@ const L = require('../logic.js');
 const T0 = new Date(2026, 10, 4, 13, 5, 9).toISOString(); // 로컬 시간 기준 2026-11-04 13:05:09
 
 const sample = () => [
-  { id: 'a', side: 'groom', name: '홍길동', amount: 150000, meals: 2, kidMeals: 1, createdAt: T0 },
-  { id: 'b', side: 'bride', name: '김영희', amount: 50000, meals: 1, kidMeals: 0, createdAt: T0 },
-  { id: 'c', side: 'groom', name: '이철수', amount: 30000, meals: 0, kidMeals: 0, createdAt: T0 },
+  { id: 'a', side: 'groom', name: '홍길동', relation: 'family', amount: 150000, meals: 2, kidMeals: 1, createdAt: T0 },
+  { id: 'b', side: 'bride', name: '김영희', relation: '', amount: 50000, meals: 1, kidMeals: 0, createdAt: T0 },
+  { id: 'c', side: 'groom', name: '이철수', relation: '', amount: 30000, meals: 0, kidMeals: 0, createdAt: T0 },
 ];
 
 /* ---------- 금액 / 표시 ---------- */
@@ -45,7 +45,7 @@ test('clampMeals: 0 미만/99 초과로 가지 않는다', () => {
 test('validateEntry: 정상 입력은 공백을 정리해 반환한다', () => {
   const r = L.validateEntry({ name: '  홍   길동 ', side: 'groom', amount: 50000, meals: 2 });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.value, { name: '홍 길동', side: 'groom', amount: 50000, meals: 2, kidMeals: 0 });
+  assert.deepEqual(r.value, { name: '홍 길동', side: 'groom', relation: '', amount: 50000, meals: 2, kidMeals: 0 });
 });
 
 test('validateEntry: 식권 기본값 0장은 허용한다', () => {
@@ -74,7 +74,7 @@ test('validateEntry: 너무 긴 이름은 거부한다', () => {
 
 test('createEntry: id와 접수시각이 붙는다', () => {
   const e = L.createEntry({ name: 'A', side: 'groom', amount: 10000, meals: 1 }, 'id1', T0);
-  assert.deepEqual(e, { id: 'id1', side: 'groom', name: 'A', amount: 10000, meals: 1, kidMeals: 0, createdAt: T0 });
+  assert.deepEqual(e, { id: 'id1', side: 'groom', name: 'A', amount: 10000, meals: 1, kidMeals: 0, relation: '', createdAt: T0 });
 });
 
 test('updateEntry: id/접수시각은 유지하고 값만 바꾼다 (원본 불변)', () => {
@@ -151,11 +151,11 @@ test('summarize: 빈 목록은 모두 0', () => {
 test('toCSV: 헤더/행/합계 구조와 CRLF — 선택한 측 데이터만', () => {
   const csv = L.toCSV(sample(), { side: 'groom' });
   assert.deepEqual(csv.split('\r\n'), [
-    '번호,구분,이름,축의금(원),식권 대인(장),식권 소인(장),식권 합계(장),접수시각',
-    '1,신랑측,홍길동,150000,2,1,3,2026-11-04 13:05:09',
-    '2,신랑측,이철수,30000,0,0,0,2026-11-04 13:05:09',
+    '번호,구분,이름,관계,축의금(원),식권 대인(장),식권 소인(장),식권 합계(장),접수시각',
+    '1,신랑측,홍길동,가족/친척,150000,2,1,3,2026-11-04 13:05:09',
+    '2,신랑측,이철수,,30000,0,0,0,2026-11-04 13:05:09',
     '',
-    ',신랑측 합계,2명,180000,2,1,3,',
+    ',신랑측 합계,2명,,180000,2,1,3,',
     '',
   ]);
 });
@@ -184,8 +184,8 @@ test('toCSV: 콤마/따옴표 이스케이프와 수식 주입 방지', () => {
     { id: '2', side: 'groom', name: '=SUM(A1)', amount: 10000, meals: 0, createdAt: T0 },
   ];
   const lines = L.toCSV(list, { side: 'groom' }).split('\r\n');
-  assert.equal(lines[1], '1,신랑측,"Kim, ""KJ""",10000,0,0,0,2026-11-04 13:05:09');
-  assert.equal(lines[2], "2,신랑측,'=SUM(A1),10000,0,0,0,2026-11-04 13:05:09");
+  assert.equal(lines[1], '1,신랑측,"Kim, ""KJ""",,10000,0,0,0,2026-11-04 13:05:09');
+  assert.equal(lines[2], "2,신랑측,'=SUM(A1),,10000,0,0,0,2026-11-04 13:05:09");
 });
 
 /* ---------- 엑셀용 시트 모델 (한쪽 데이터만) ---------- */
@@ -318,4 +318,23 @@ test('updateEntry/parseStored: 소인 식권이 수정·저장·복원된다 (�
   assert.deepEqual(back.entries.find((e) => e.id === 'c').kidMeals, 2);
   const old = JSON.stringify({ version: 1, side: 'groom', entries: [{ id: 'x', side: 'groom', name: '구', amount: 10000, meals: 2, createdAt: T0 }] });
   assert.equal(L.parseStored(old).entries[0].kidMeals, 0);
+});
+
+test('관계: 선택 안 함/유효 키/잘못된 키', () => {
+  const base = { name: '홍길동', side: 'groom', amount: 50000, meals: 1 };
+  assert.equal(L.validateEntry(base).value.relation, '');
+  assert.equal(L.validateEntry({ ...base, relation: null }).value.relation, '');
+  for (const k of Object.keys(L.RELATIONS)) {
+    assert.equal(L.validateEntry({ ...base, relation: k }).value.relation, k);
+  }
+  const bad = L.validateEntry({ ...base, relation: 'boss' });
+  assert.equal(bad.ok, false);
+  assert.match(bad.errors.join(' '), /관계/);
+});
+
+test('관계: 라벨 변환과 CSV 출력', () => {
+  assert.equal(L.relationLabel('work'), '직장');
+  assert.equal(L.relationLabel(''), '');
+  const csv = L.toCSV([{ id: 'x', side: 'groom', name: 'A', relation: 'friend', amount: 1000, meals: 0, kidMeals: 0, createdAt: T0 }], { side: 'groom' });
+  assert.ok(csv.includes('A,친구/지인,1000'));
 });

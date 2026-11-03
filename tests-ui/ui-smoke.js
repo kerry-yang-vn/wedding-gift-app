@@ -135,7 +135,7 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
   check('검색 결과 없음 안내', text(w, 'empty') === '조건에 맞는 내역이 없습니다.' && !isHidden(w, 'empty') === true);
   search.value = '';
   search.dispatchEvent(new w.Event('input', { bubbles: true }));
-  check('측별 필터 칩이 없다', qa(w, '.chip').length === 0);
+  check('측별 필터 칩이 없다', qa(w, '.chip:not([data-relation])').length === 0);
 
   console.log('[9] XSS 방어 (이름에 HTML 입력)');
   setName(w, '<img src=x onerror=alert(1)>');
@@ -299,9 +299,22 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
   click(w, 'kid-plus');
   check('대인 2 · 소인 1 입력 반영', text(w, 'meal-view') === '2장' && text(w, 'kid-view') === '1장');
   const beforeTotal = text(w, 'sum-meals');
+  console.log('[13-7] 관계 선택');
+  const chips = qa(w, '#relation-chips .chip');
+  check('관계 칩 4개, 처음엔 모두 미선택', chips.length === 4 && chips.every((c) => c.getAttribute('aria-pressed') === 'false') && chips.map((c) => c.textContent).join('|') === '가족/친척|친구/지인|직장|기타', chips.map((c) => c.textContent));
+  chips[0].click();
+  check('칩 선택 → aria-pressed=true (하나만)', chips[0].getAttribute('aria-pressed') === 'true' && chips.slice(1).every((c) => c.getAttribute('aria-pressed') === 'false'));
+  chips[2].click();
+  check('다른 칩을 누르면 선택이 옮겨간다', chips[0].getAttribute('aria-pressed') === 'false' && chips[2].getAttribute('aria-pressed') === 'true');
+  chips[2].click();
+  check('같은 칩 다시 누르면 선택 해제', chips.every((c) => c.getAttribute('aria-pressed') === 'false'));
+  chips[0].click();
   click(w, 'submit');
   const kidEntry = stored(w).entries.find((e) => e.name === '가족단위');
   check('저장: meals=2(대인), kidMeals=1(소인)', kidEntry && kidEntry.meals === 2 && kidEntry.kidMeals === 1, kidEntry);
+  check('저장된 관계는 family, 등록 후 칩 선택 초기화', kidEntry && kidEntry.relation === 'family' && qa(w, '#relation-chips .chip').every((c) => c.getAttribute('aria-pressed') === 'false'), kidEntry);
+  check('목록에 관계 태그 "가족/친척" 표시', qa(w, '.item').some((li) => li.textContent.includes('가족단위') && li.querySelector('.tag') && li.querySelector('.tag').textContent === '가족/친척'));
+  check('관계를 고르지 않은 항목에는 태그가 없다', qa(w, '.item').some((li) => !li.querySelector('.tag')));
   check('등록 후 폼의 대인/소인이 0장으로 초기화', text(w, 'meal-view') === '0장' && text(w, 'kid-view') === '0장');
   check('목록에 "식권 대인 2 · 소인 1" 표시', qa(w, '.item').some((li) => li.textContent.includes('가족단위') && li.textContent.includes('식권 대인 2 · 소인 1')));
   const allEntries = stored(w).entries;
@@ -311,9 +324,12 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
   const editBtn = qa(w, '.item').find((li) => li.textContent.includes('가족단위')).querySelector('[data-action=edit]');
   editBtn.click();
   check('수정 시 대인 2 · 소인 1이 채워진다', text(w, 'meal-view') === '2장' && text(w, 'kid-view') === '1장');
+  check('수정 시 관계 칩(가족/친척)도 채워진다', qa(w, '#relation-chips .chip')[0].getAttribute('aria-pressed') === 'true');
+  qa(w, '#relation-chips .chip')[3].click();
   click(w, 'kid-plus');
   click(w, 'submit');
   check('소인 수정 저장 (1→2)', stored(w).entries.find((e) => e.name === '가족단위').kidMeals === 2);
+  check('관계 수정 저장 (가족/친척→기타)', stored(w).entries.find((e) => e.name === '가족단위').relation === 'other');
   for (let i = 0; i < 100; i++) click(w, 'kid-plus');
   check('소인 상한에서 + 버튼 잠김', w.document.getElementById('kid-plus').disabled === true && text(w, 'kid-view') === `${w.GiftLogic.MAX_MEALS}장`);
   click(w, 'clear');
@@ -321,6 +337,7 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
   click(w, 'export-csv');
   await sleep(150);
   check('CSV에 대인/소인/합계 열이 있다', !!blobText && blobText.includes('식권 대인(장),식권 소인(장),식권 합계(장)') && blobText.includes('가족단위'), blobText && blobText.split('\r\n')[0]);
+  check('CSV에 관계 열과 라벨(기타)이 있다', blobText.split('\r\n')[0].startsWith('번호,구분,이름,관계,') && blobText.includes('가족단위,기타,'), blobText.split('\r\n')[1]);
   blobBytes = null; blobText = null; downloadName = null;
 
   console.log('[14] 측 변경 규칙 / 전체 삭제');

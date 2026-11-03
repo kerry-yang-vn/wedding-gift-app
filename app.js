@@ -31,7 +31,7 @@
   }
 
   const state = loadState(); // { entries, side } — side가 null이면 아직 측을 고르지 않은 상태
-  const form = { base: 0, taps: [], meals: 0, kids: 0, editingId: null }; // meals=식권 대인, kids=식권 소인
+  const form = { base: 0, taps: [], meals: 0, kids: 0, relation: '', editingId: null }; // meals=식권 대인, kids=식권 소인
   const filter = { query: '' };
   let undoDelete = null;
   let toastTimer = null;
@@ -106,6 +106,7 @@
     $('meal-view').textContent = `${form.meals}장`;
     $('meal-minus').disabled = form.meals <= 0;
     $('meal-plus').disabled = form.meals >= L.MAX_MEALS;
+    document.querySelectorAll('#relation-chips .chip').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.relation === form.relation)));
     $('kid-view').textContent = `${form.kids}장`;
     $('kid-minus').disabled = form.kids <= 0;
     $('kid-plus').disabled = form.kids >= L.MAX_MEALS;
@@ -122,7 +123,12 @@
       'li',
       { class: 'item' + (form.editingId === e.id ? ' editing' : '') },
       el('span', { class: 'no', text: String(no) }),
-      el('div', { class: 'nm' }, el('strong', { text: e.name }), el('small', { text: L.formatClock(e.createdAt) })),
+      el(
+        'div',
+        { class: 'nm' },
+        el('div', {}, el('strong', { text: e.name }), e.relation ? el('span', { class: 'tag', text: L.relationLabel(e.relation) }) : ''),
+        el('small', { text: L.formatClock(e.createdAt) })
+      ),
       el('span', { class: 'money', text: L.formatWon(e.amount) }),
       el('span', { class: 'meal', text: `식권 대인 ${e.meals} · 소인 ${e.kidMeals || 0}` }),
       el(
@@ -187,6 +193,7 @@
     form.taps = [];
     form.meals = 0;
     form.kids = 0;
+    form.relation = '';
     form.editingId = null;
     $('name').value = '';
     $('form-msg').textContent = '';
@@ -197,6 +204,7 @@
     const result = L.validateEntry({
       name: $('name').value,
       side: state.side,
+      relation: form.relation,
       amount: currentAmount(),
       meals: form.meals,
       kidMeals: form.kids,
@@ -229,6 +237,7 @@
     form.taps = [];
     form.meals = e.meals;
     form.kids = e.kidMeals || 0;
+    form.relation = e.relation || '';
     $('name').value = e.name;
     $('form-msg').textContent = '';
     renderAll();
@@ -461,6 +470,13 @@
     if (v) $('custom-preview').textContent = `= ${L.formatWon(v)}`;
   });
   $('custom-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+
+  // 관계 칩: 선택 사항. 같은 칩을 다시 누르면 선택 해제
+  Object.entries(L.RELATIONS).forEach(([key, label]) => {
+    const chip = el('button', { type: 'button', class: 'chip', 'data-relation': key, 'aria-pressed': 'false', text: label });
+    chip.addEventListener('click', () => { form.relation = form.relation === key ? '' : key; renderForm(); });
+    $('relation-chips').append(chip);
+  });
 
   document.querySelectorAll('[data-setup]').forEach((btn) =>
     btn.addEventListener('click', () => chooseSide(btn.dataset.setup))

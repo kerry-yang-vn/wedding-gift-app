@@ -11,6 +11,10 @@
   const AMOUNT_BUTTONS = Object.freeze([10000, 30000, 50000, 100000]);
   const SIDES = Object.freeze({ groom: '신랑측', bride: '신부측' });
   const MAX_MEALS = 99;
+  // 관계(선택 항목): 빈 값 = 미선택
+  const RELATIONS = { family: '가족/친척', friend: '친구/지인', work: '직장', other: '기타' };
+  const relationLabel = (key) => RELATIONS[key] || '';
+
   const MAX_AMOUNT = 100000000; // 1억 원 — 오입력 방지용 상한
   const MAX_NAME_LENGTH = 30;
   const STORAGE_VERSION = 1;
@@ -77,6 +81,7 @@
     const side = src.side;
     const amount = Number(src.amount);
     const meals = Number(src.meals); // 식권 대인(장)
+    const relation = src.relation == null ? '' : src.relation;
     const kidMeals = src.kidMeals == null || src.kidMeals === '' ? 0 : Number(src.kidMeals); // 식권 소인(장)
 
     if (!name) errors.push('이름을 입력해 주세요.');
@@ -87,6 +92,8 @@
     if (!Number.isInteger(amount) || amount <= 0) errors.push('축의금 금액을 선택해 주세요.');
     else if (amount > MAX_AMOUNT) errors.push(`축의금은 ${formatWon(MAX_AMOUNT)} 이하로 입력해 주세요.`);
 
+    if (relation !== '' && !Object.prototype.hasOwnProperty.call(RELATIONS, relation)) errors.push('관계를 다시 선택해 주세요.');
+
     for (const [label, n] of [['대인', meals], ['소인', kidMeals]]) {
       if (!Number.isInteger(n) || n < 0 || n > MAX_MEALS) {
         errors.push(`식권(${label})은 0~${MAX_MEALS}장 사이로 입력해 주세요.`);
@@ -96,19 +103,19 @@
     return {
       ok: errors.length === 0,
       errors,
-      value: errors.length === 0 ? { name, side, amount, meals, kidMeals } : null,
+      value: errors.length === 0 ? { name, side, relation, amount, meals, kidMeals } : null,
     };
   }
 
   function createEntry(value, id, createdAt) {
-    return { id, side: value.side, name: value.name, amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0, createdAt };
+    return { id, side: value.side, name: value.name, relation: value.relation || '', amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0, createdAt };
   }
 
   /* ---------- 목록 조작 (불변: 항상 새 배열 반환) ---------- */
 
   function updateEntry(entries, id, value) {
     return entries.map((e) =>
-      e.id === id ? { ...e, side: value.side, name: value.name, amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0 } : e
+      e.id === id ? { ...e, side: value.side, name: value.name, relation: value.relation || '', amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0 } : e
     );
   }
 
@@ -173,7 +180,7 @@
     if (!hasSide(side)) throw new Error('toCSV: side(groom/bride)를 지정해야 합니다.');
     const own = entries.filter((e) => e.side === side);
     const row = (cells) => cells.join(',');
-    const lines = [row(['번호', '구분', '이름', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'])];
+    const lines = [row(['번호', '구분', '이름', '관계', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'])];
 
     own.forEach((e, i) => {
       lines.push(
@@ -181,6 +188,7 @@
           i + 1,
           csvCell(SIDES[e.side] || ''),
           csvCell(e.name, true),
+          csvCell(relationLabel(e.relation)),
           e.amount,
           e.meals,
           e.kidMeals || 0,
@@ -192,7 +200,7 @@
 
     const s = summarize(own);
     lines.push('');
-    lines.push(row(['', `${SIDES[side]} 합계`, `${s.count}명`, s.amount, s.meals, s.kidMeals, s.totalMeals, '']));
+    lines.push(row(['', `${SIDES[side]} 합계`, `${s.count}명`, '', s.amount, s.meals, s.kidMeals, s.totalMeals, '']));
 
     return (bom ? '﻿' : '') + lines.join('\r\n') + '\r\n';
   }
@@ -205,11 +213,12 @@
     const s = summarize(own);
     return {
       sheetName: `${SIDES[side]} 축의금`,
-      headers: ['번호', '구분', '이름', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'],
+      headers: ['번호', '구분', '이름', '관계', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'],
       rows: own.map((e, i) => ({
         no: i + 1,
         side: SIDES[e.side],
         name: e.name,
+        relation: relationLabel(e.relation),
         amount: e.amount,
         meals: e.meals,
         kidMeals: e.kidMeals || 0,
@@ -266,6 +275,8 @@
   return {
     AMOUNT_BUTTONS,
     SIDES,
+    RELATIONS,
+    relationLabel,
     MAX_MEALS,
     MAX_AMOUNT,
     MAX_NAME_LENGTH,

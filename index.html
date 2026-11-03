@@ -90,6 +90,7 @@
     }
     .card { background: var(--surface-card); border-radius: var(--r-card); padding: 18px; box-shadow: 0 1px 3px rgba(27,42,78,.08); }
     .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    #list-title { white-space: nowrap; }
     #form-card { position: sticky; top: 100px; max-height: calc(100dvh - 116px); overflow-y: auto; padding-bottom: 0; }
     #form-card.editing { outline: 3px solid var(--tertiary); }
 
@@ -101,6 +102,10 @@
     }
     input:focus { border-color: var(--secondary); }
 
+    .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .chip { padding: 0 4px; font-size: 15px; font-weight: 700; border: 2px solid var(--outline); background: var(--surface-card); }
+    .chip[aria-pressed="true"] { border-color: var(--tertiary); background: var(--tertiary-container); }
+    .tag { display: inline-block; margin-left: 8px; padding: 1px 9px; font-size: 13px; font-weight: 700; border-radius: 999px; background: var(--surface-tonal); color: var(--on-surface); vertical-align: middle; }
     .amount-box { background: var(--surface); border-radius: var(--r-field); padding: 10px 14px; margin-bottom: 10px; }
     #amount-view { display: block; font-size: 38px; line-height: 1.2; font-weight: 800; font-variant-numeric: tabular-nums; }
     .formula { color: var(--on-surface-variant); font-size: 15px; min-height: 1.4em; }
@@ -188,8 +193,29 @@
       #amount-view { font-size: 34px; }
       .amount-grid, .custom-open { margin-bottom: 8px; }
       .amt { min-height: 60px; }
+      .chip { min-height: 44px; }
       .stepper button { min-height: 52px; }
       .primary { min-height: 60px; }
+    }
+    @media (min-width: 840px) and (max-height: 820px) { /* 1180×820 등 더 낮은 가로 화면: 관계 칩 한 줄이 늘어난 만큼 추가 압축 */
+      .field { margin-bottom: 8px; }
+      .amount-box { padding: 6px 14px; margin-bottom: 6px; }
+      #amount-view { font-size: 30px; }
+      .amount-grid, .custom-open { margin-bottom: 6px; }
+      .amt { min-height: 52px; font-size: 22px; }
+      .chip { min-height: 40px; }
+      .stepper button { min-height: 46px; }
+      .primary { min-height: 54px; }
+    }
+    @media (min-width: 840px) and (max-height: 780px) { /* 1024×768 등: 안내 문구 줄과 여백을 더 줄임 */
+      #amount-formula { font-size: 12px; line-height: 1.2; }
+      .amount-box { padding: 4px 12px; margin-bottom: 4px; }
+      #amount-view { font-size: 26px; line-height: 1.1; }
+      .field { margin-bottom: 6px; }
+      .amt { min-height: 46px; }
+      .chip { min-height: 36px; }
+      .stepper button { min-height: 42px; }
+      .primary { min-height: 50px; }
     }
     @media (max-width: 839px) { /* 좁음+중간: 한 열 */
       .layout { grid-template-columns: 1fr; padding: 12px; max-width: 760px; }
@@ -207,6 +233,7 @@
       .stat.side-label strong { font-size: 16px; }
       .stat.side-label .k { font-size: 12px; }
       .card { padding: 14px; }
+      .chip { font-size: 14px; }
       .meal-grid { grid-template-columns: 1fr; gap: 8px; }
       .meal-col { display: grid; grid-template-columns: 48px 1fr; align-items: center; }
       .stepper-name { margin: 0; }
@@ -246,6 +273,11 @@
         <span>이름</span>
         <input id="name" type="text" maxlength="30" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="이름 입력">
       </label>
+
+      <div class="field">
+        <span class="label">관계 (선택 사항)</span>
+        <div class="chips" id="relation-chips" role="group" aria-label="관계 선택"></div>
+      </div>
 
       <div class="field">
         <span class="label">축의금 (버튼을 눌러 더하기)</span>
