@@ -1,4 +1,5 @@
-/* 축의금 접수 앱 — 화면/이벤트/저장소 (계산 로직은 logic.js) */
+/* 축의금 접수 앱 — 화면/이벤트/저장소 (계산 로직은 logic.js)
+   이 기기는 신랑측/신부측 중 한쪽으로 고정되며, 상대측 정보와 전체 합계는 어디에도 표시·내보내기되지 않는다. */
 (() => {
   'use strict';
 
@@ -29,13 +30,16 @@
     $('storage-warning').hidden = storageOk;
   }
 
-  const state = loadState();
-  const form = { side: state.lastSide, base: 0, taps: [], meals: 0, editingId: null };
-  const filter = { query: '', side: 'all' };
+  const state = loadState(); // { entries, side } — side가 null이면 아직 측을 고르지 않은 상태
+  const form = { base: 0, taps: [], meals: 0, editingId: null };
+  const filter = { query: '' };
   let undoDelete = null;
   let toastTimer = null;
 
   const currentAmount = () => form.base + L.sumTaps(form.taps);
+
+  // 화면에 보여주는 데이터는 항상 이 기기의 측 항목뿐이다 (측 미선택이면 아무것도 보이지 않음)
+  const ownEntries = () => (state.side ? state.entries.filter((e) => e.side === state.side) : []);
 
   function newId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -71,28 +75,25 @@
     toastTimer = setTimeout(() => {
       t.hidden = true;
       if (action) undoDelete = null;
-    }, action ? 7000 : 2200);
+    }, action ? 7000 : 2800);
   }
 
   /* ---------- 렌더링 ---------- */
 
+  function renderSide() {
+    document.body.dataset.side = state.side || '';
+    $('side-label').textContent = state.side ? `${L.SIDES[state.side]} 접수대` : '선택 필요';
+    $('side-setup').hidden = Boolean(state.side);
+  }
+
   function renderSummary() {
-    const s = L.summarize(state.entries);
+    const s = L.summarize(ownEntries());
     $('sum-count').textContent = `${s.count}명`;
     $('sum-amount').textContent = L.formatWon(s.amount);
     $('sum-meals').textContent = `${s.meals}장`;
-    for (const side of ['groom', 'bride']) {
-      const b = s.bySide[side];
-      $(`${side}-amount`).textContent = L.formatWon(b.amount);
-      $(`${side}-detail`).textContent = `${b.count}명 · 식권 ${b.meals}장`;
-    }
   }
 
   function renderForm() {
-    document.querySelectorAll('.seg-btn').forEach((b) =>
-      b.setAttribute('aria-pressed', String(b.dataset.side === form.side))
-    );
-
     $('amount-view').textContent = L.formatWon(currentAmount());
     const parts = [];
     if (form.base) parts.push(`기존 ${L.formatMan(form.base)}`);
@@ -117,7 +118,6 @@
       'li',
       { class: 'item' + (form.editingId === e.id ? ' editing' : '') },
       el('span', { class: 'no', text: String(no) }),
-      el('span', { class: `pill ${e.side}`, text: L.SIDES[e.side] }),
       el('div', { class: 'nm' }, el('strong', { text: e.name }), el('small', { text: L.formatClock(e.createdAt) })),
       el('span', { class: 'money', text: L.formatWon(e.amount) }),
       el('span', { class: 'meal', text: `식권 ${e.meals}장` }),
@@ -131,21 +131,49 @@
   }
 
   function renderList() {
-    const numberById = new Map(state.entries.map((e, i) => [e.id, i + 1]));
-    const shown = L.filterEntries(state.entries, filter).reverse(); // 최신순
+    const own = ownEntries();
+    const numberById = new Map(own.map((e, i) => [e.id, i + 1]));
+    const shown = L.filterEntries(own, { query: filter.query }).reverse(); // 최신순
     $('list').replaceChildren(...shown.map((e) => renderItem(e, numberById.get(e.id))));
     const empty = $('empty');
     empty.hidden = shown.length > 0;
-    empty.textContent = state.entries.length ? '조건에 맞는 내역이 없습니다.' : '아직 접수된 내역이 없습니다.';
-    document.querySelectorAll('.chip').forEach((c) =>
-      c.setAttribute('aria-pressed', String(c.dataset.filter === filter.side))
-    );
+    empty.textContent = own.length ? '조건에 맞는 내역이 없습니다.' : '아직 접수된 내역이 없습니다.';
   }
 
   function renderAll() {
+    renderSide();
     renderSummary();
     renderForm();
     renderList();
+  }
+
+  /* ---------- 측 선택 / 변경 ---------- */
+
+  function chooseSide(side) {
+    const { entries, dropped } = L.lockSide(state.entries, side);
+    if (dropped > 0) {
+      const ok = window.confirm(
+        `이 기기에 저장된 예전(연습) 데이터 중 ${L.SIDES[side]}이 아닌 ${dropped}건은 삭제됩니다.\n계속할까요?`
+      );
+      if (!ok) return;
+    }
+    state.entries = entries;
+    state.side = side;
+    saveState();
+    resetForm();
+    renderAll();
+    $('name').focus();
+  }
+
+  function changeSide() {
+    if (ownEntries().length > 0) {
+      toast('접수 내역이 있어 측을 바꿀 수 없습니다. 먼저 CSV로 백업하고 전체 삭제를 해주세요.');
+      return;
+    }
+    state.side = null;
+    saveState();
+    resetForm();
+    renderAll();
   }
 
   /* ---------- 폼 동작 ---------- */
@@ -160,9 +188,10 @@
   }
 
   function submit() {
+    if (!state.side) return;
     const result = L.validateEntry({
       name: $('name').value,
-      side: form.side,
+      side: state.side,
       amount: currentAmount(),
       meals: form.meals,
     });
@@ -180,7 +209,6 @@
       state.entries = state.entries.concat(L.createEntry(v, newId(), new Date().toISOString()));
       toast(`${v.name}님 ${L.formatWon(v.amount)} · 식권 ${v.meals}장 등록`);
     }
-    state.lastSide = v.side;
     saveState();
     resetForm();
     renderAll();
@@ -188,10 +216,9 @@
   }
 
   function startEdit(id) {
-    const e = state.entries.find((x) => x.id === id);
+    const e = ownEntries().find((x) => x.id === id);
     if (!e) return;
     form.editingId = id;
-    form.side = e.side;
     form.base = e.amount;
     form.taps = [];
     form.meals = e.meals;
@@ -222,11 +249,12 @@
   }
 
   function resetAll() {
-    if (!state.entries.length) {
+    const own = ownEntries();
+    if (!own.length) {
       toast('삭제할 내역이 없습니다');
       return;
     }
-    const s = L.summarize(state.entries);
+    const s = L.summarize(own);
     const answer = window.prompt(
       `전체 ${s.count}건(${L.formatWon(s.amount)})을 모두 삭제합니다.\nCSV를 먼저 내보내셨나요?\n계속하려면 "삭제"를 입력하세요.`
     );
@@ -240,21 +268,21 @@
     }
   }
 
-  /* ---------- CSV 내보내기 ---------- */
+  /* ---------- CSV 내보내기 (이 기기의 측 데이터만) ---------- */
 
   async function exportCsv() {
-    if (!state.entries.length) {
+    if (!state.side || !ownEntries().length) {
       toast('내보낼 내역이 없습니다');
       return;
     }
-    const csv = L.toCSV(state.entries, { bom: true });
-    const filename = `축의금_${L.formatDateStamp(new Date())}.csv`;
+    const csv = L.toCSV(state.entries, { side: state.side, bom: true });
+    const filename = `축의금_${L.SIDES[state.side]}_${L.formatDateStamp(new Date())}.csv`;
 
     // 아이패드: 공유 시트(파일에 저장 / AirDrop / 메일)가 가장 안정적
     try {
       const file = new File([csv], filename, { type: 'text/csv' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: '축의금 내역' });
+        await navigator.share({ files: [file], title: `${L.SIDES[state.side]} 축의금 내역` });
         return;
       }
     } catch (err) {
@@ -286,12 +314,10 @@
     $('amount-grid').append(btn);
   });
 
-  document.querySelectorAll('.seg-btn').forEach((btn) =>
-    btn.addEventListener('click', () => {
-      form.side = btn.dataset.side;
-      renderForm();
-    })
+  document.querySelectorAll('[data-setup]').forEach((btn) =>
+    btn.addEventListener('click', () => chooseSide(btn.dataset.setup))
   );
+  $('change-side').addEventListener('click', changeSide);
 
   $('undo').addEventListener('click', () => { form.taps.pop(); renderForm(); });
   $('clear').addEventListener('click', () => { form.base = 0; form.taps = []; renderForm(); });
@@ -302,9 +328,6 @@
   $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('name').blur(); });
 
   $('search').addEventListener('input', (e) => { filter.query = e.target.value; renderList(); });
-  document.querySelectorAll('.chip').forEach((chip) =>
-    chip.addEventListener('click', () => { filter.side = chip.dataset.filter; renderList(); })
-  );
 
   $('list').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');

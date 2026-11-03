@@ -38,41 +38,48 @@ const text = (w, id) => w.document.getElementById(id).textContent;
 const amt = (w, label) => qa(w, '.amt').find((b) => b.textContent === label);
 const setName = (w, v) => { w.document.getElementById('name').value = v; };
 const click = (w, id) => w.document.getElementById(id).click();
+const chooseSide = (w, side) => q(w, `[data-setup=${side}]`).click();
+const stored = (w) => JSON.parse(w.localStorage.getItem('wedding-gift-v1'));
+const isHidden = (w, id) => w.document.getElementById(id).hidden === true;
+// 화면에 노출되는 영역(합계/입력/내역)의 텍스트 — 측 선택 오버레이는 제외
+const visibleText = (w) => ['.summary', '#form-card', '#list-card'].map((s) => q(w, s).textContent).join(' ');
+const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meals, createdAt: new Date().toISOString() });
 
 (async () => {
-  console.log('[1] 초기 화면');
+  console.log('[1] 첫 실행: 측 선택');
   let dom = boot();
   let w = dom.window;
+  check('측 선택 화면이 열려 있다', !isHidden(w, 'side-setup'));
+  check('측 미선택 상태 표시', text(w, 'side-label') === '선택 필요');
   check('금액 버튼 4개 (1만/3만/5만/10만)', qa(w, '.amt').map((b) => b.textContent).join(',') === '1만,3만,5만,10만');
-  check('초기 합계 0명/0원/0장', text(w, 'sum-count') === '0명' && text(w, 'sum-amount') === '0원' && text(w, 'sum-meals') === '0장');
+  chooseSide(w, 'groom');
+  check('신랑측 선택 → 선택 화면 닫힘', isHidden(w, 'side-setup'));
+  check('상단에 "신랑측 접수대" 표시', text(w, 'side-label') === '신랑측 접수대', text(w, 'side-label'));
+  check('측 정보가 저장소에 기록됨', stored(w).side === 'groom');
+  check('측 전환 버튼(.seg-btn)이 없다', qa(w, '.seg-btn').length === 0);
+  check('화면 어디에도 "신부측"·"전체 합계" 문구가 없다', !/신부측|전체 합계/.test(visibleText(w)), visibleText(w));
   check('식권 기본값 0장', text(w, 'meal-view') === '0장');
-  check('기본 선택은 신랑측', q(w, '.seg-btn.groom').getAttribute('aria-pressed') === 'true');
-  check('빈 목록 안내 문구', text(w, 'empty') === '아직 접수된 내역이 없습니다.');
+  check('초기 합계 0명/0원/0장', text(w, 'sum-count') === '0명' && text(w, 'sum-amount') === '0원' && text(w, 'sum-meals') === '0장');
 
-  console.log('[2] 신랑측 홍길동: 10만 + 5만 = 15만, 식권 2장');
+  console.log('[2] 홍길동: 10만 + 5만 = 15만, 식권 2장');
   setName(w, '홍길동');
   amt(w, '10만').click();
   amt(w, '5만').click();
   check('금액 합산 150,000원', text(w, 'amount-view') === '150,000원', text(w, 'amount-view'));
-  check('수식 표시 "10만 + 5만"', text(w, 'amount-formula') === '10만 + 5만', text(w, 'amount-formula'));
+  check('수식 표시 "10만 + 5만"', text(w, 'amount-formula') === '10만 + 5만');
   click(w, 'meal-plus'); click(w, 'meal-plus');
-  check('식권 2장', text(w, 'meal-view') === '2장');
   click(w, 'submit');
   check('합계 1명/150,000원/2장', text(w, 'sum-count') === '1명' && text(w, 'sum-amount') === '150,000원' && text(w, 'sum-meals') === '2장',
     [text(w, 'sum-count'), text(w, 'sum-amount'), text(w, 'sum-meals')]);
-  check('신랑측 집계', text(w, 'groom-amount') === '150,000원' && text(w, 'groom-detail') === '1명 · 식권 2장', text(w, 'groom-detail'));
-  check('목록 1건', qa(w, '.item').length === 1);
-  check('등록 후 폼 초기화 (이름/금액/식권)', w.document.getElementById('name').value === '' && text(w, 'amount-view') === '0원' && text(w, 'meal-view') === '0장');
-  check('등록 후 선택한 측(신랑측) 유지', q(w, '.seg-btn.groom').getAttribute('aria-pressed') === 'true');
+  check('목록 1건, 폼 초기화', qa(w, '.item').length === 1 && w.document.getElementById('name').value === '' && text(w, 'amount-view') === '0원' && text(w, 'meal-view') === '0장');
+  check('저장된 항목의 측이 신랑측', stored(w).entries.every((e) => e.side === 'groom'));
 
-  console.log('[3] 신부측 김영희: 5만, 식권 0장');
-  q(w, '.seg-btn.bride').click();
-  setName(w, '김영희');
-  amt(w, '5만').click();
+  console.log('[3] 이철수: 3만, 식권 0장');
+  setName(w, '이철수');
+  amt(w, '3만').click();
   click(w, 'submit');
-  check('합계 2명/200,000원/2장', text(w, 'sum-count') === '2명' && text(w, 'sum-amount') === '200,000원' && text(w, 'sum-meals') === '2장');
-  check('신부측 집계', text(w, 'bride-amount') === '50,000원' && text(w, 'bride-detail') === '1명 · 식권 0장', text(w, 'bride-detail'));
-  check('최신순 정렬 (김영희가 맨 위)', q(w, '.item .nm strong').textContent === '김영희');
+  check('합계 2명/180,000원/2장', text(w, 'sum-count') === '2명' && text(w, 'sum-amount') === '180,000원' && text(w, 'sum-meals') === '2장');
+  check('최신순 정렬 (이철수가 맨 위)', q(w, '.item .nm strong').textContent === '이철수');
 
   console.log('[4] 입력 검증');
   click(w, 'submit');
@@ -86,67 +93,76 @@ const click = (w, id) => w.document.getElementById(id).click();
   amt(w, '1만').click(); amt(w, '3만').click();
   check('1만+3만 = 40,000원', text(w, 'amount-view') === '40,000원');
   click(w, 'undo');
-  check('마지막 취소 → 10,000원', text(w, 'amount-view') === '10,000원', text(w, 'amount-view'));
+  check('마지막 취소 → 10,000원', text(w, 'amount-view') === '10,000원');
   click(w, 'clear');
-  check('금액 초기화 → 0원', text(w, 'amount-view') === '0원');
-  check('초기화 후 취소 버튼 비활성', w.document.getElementById('undo').disabled === true);
+  check('금액 초기화 → 0원, 취소 버튼 비활성', text(w, 'amount-view') === '0원' && w.document.getElementById('undo').disabled === true);
   setName(w, '');
 
   console.log('[6] 수정');
-  const hongItem = qa(w, '.item').find((li) => li.textContent.includes('홍길동'));
-  hongItem.querySelector('[data-action=edit]').click();
-  check('수정 모드: 이름/금액/버튼 문구', w.document.getElementById('name').value === '홍길동' && text(w, 'amount-view') === '150,000원' && text(w, 'submit') === '수정 저장',
-    [w.document.getElementById('name').value, text(w, 'amount-view'), text(w, 'submit')]);
+  qa(w, '.item').find((li) => li.textContent.includes('홍길동')).querySelector('[data-action=edit]').click();
+  check('수정 모드: 이름/금액/버튼 문구', w.document.getElementById('name').value === '홍길동' && text(w, 'amount-view') === '150,000원' && text(w, 'submit') === '수정 저장');
   click(w, 'clear');
   amt(w, '10만').click();
   click(w, 'meal-minus');
   click(w, 'submit');
-  check('수정 반영: 총 150,000원/식권 1장', text(w, 'sum-amount') === '150,000원' && text(w, 'sum-meals') === '1장', [text(w, 'sum-amount'), text(w, 'sum-meals')]);
-  check('수정 후에도 2건 유지, 일반 모드 복귀', text(w, 'sum-count') === '2명' && text(w, 'submit') === '등록');
+  check('수정 반영: 총 130,000원/식권 1장', text(w, 'sum-amount') === '130,000원' && text(w, 'sum-meals') === '1장', [text(w, 'sum-amount'), text(w, 'sum-meals')]);
+  check('수정 후 2건 유지, 일반 모드 복귀', text(w, 'sum-count') === '2명' && text(w, 'submit') === '등록');
 
   console.log('[7] 삭제 → 되돌리기');
   const before = qa(w, '.item .nm strong').map((n) => n.textContent).join(',');
-  qa(w, '.item').find((li) => li.textContent.includes('김영희')).querySelector('[data-action=delete]').click();
+  qa(w, '.item').find((li) => li.textContent.includes('이철수')).querySelector('[data-action=delete]').click();
   check('삭제 후 1명', text(w, 'sum-count') === '1명');
   const undoBtn = q(w, '.toast-btn');
   check('토스트에 되돌리기 버튼', !!undoBtn && undoBtn.textContent === '되돌리기');
   undoBtn.click();
   check('되돌리기 → 2명 복구, 순서 동일', text(w, 'sum-count') === '2명' && qa(w, '.item .nm strong').map((n) => n.textContent).join(',') === before);
 
-  console.log('[8] 검색 / 필터');
+  console.log('[8] 이름 검색');
   const search = w.document.getElementById('search');
-  search.value = '김';
+  search.value = '이';
   search.dispatchEvent(new w.Event('input', { bubbles: true }));
-  check('이름 검색 "김" → 1건', qa(w, '.item').length === 1);
+  check('이름 검색 "이" → 1건', qa(w, '.item').length === 1);
   search.value = '없는사람';
   search.dispatchEvent(new w.Event('input', { bubbles: true }));
-  check('검색 결과 없음 안내', text(w, 'empty') === '조건에 맞는 내역이 없습니다.' && w.document.getElementById('empty').hidden === false);
+  check('검색 결과 없음 안내', text(w, 'empty') === '조건에 맞는 내역이 없습니다.' && !isHidden(w, 'empty') === true);
   search.value = '';
   search.dispatchEvent(new w.Event('input', { bubbles: true }));
-  qa(w, '.chip').find((c) => c.dataset.filter === 'groom').click();
-  check('신랑측 필터 → 1건', qa(w, '.item').length === 1 && qa(w, '.item .pill')[0].textContent === '신랑측');
-  qa(w, '.chip').find((c) => c.dataset.filter === 'all').click();
-  check('전체 필터 → 2건', qa(w, '.item').length === 2);
+  check('측별 필터 칩이 없다', qa(w, '.chip').length === 0);
 
   console.log('[9] XSS 방어 (이름에 HTML 입력)');
   setName(w, '<img src=x onerror=alert(1)>');
   amt(w, '1만').click();
   click(w, 'submit');
-  check('이름이 텍스트로만 표시 (img 태그 생성 없음)', qa(w, '.item img').length === 0 && qa(w, '.item .nm strong').some((n) => n.textContent === '<img src=x onerror=alert(1)>'));
+  check('이름이 텍스트로만 표시', qa(w, '.item img').length === 0 && qa(w, '.item .nm strong').some((n) => n.textContent === '<img src=x onerror=alert(1)>'));
 
-  console.log('[10] 새로고침 후 데이터 복원');
+  console.log('[10] 새로고침 후 데이터·측 복원');
   const saved = w.localStorage.getItem('wedding-gift-v1');
-  check('localStorage에 저장됨', !!saved && JSON.parse(saved).entries.length === 3);
-  const dom2 = boot(saved);
-  const w2 = dom2.window;
-  check('재실행 후 합계 동일 (3명)', text(w2, 'sum-count') === '3명' && text(w2, 'sum-amount') === text(w, 'sum-amount'), [text(w2, 'sum-count'), text(w2, 'sum-amount')]);
-  check('마지막 선택 측 복원', q(w2, '.seg-btn.groom').getAttribute('aria-pressed') === 'true');
+  const w2 = boot(saved).window;
+  check('재실행 후 합계 동일 (3명)', text(w2, 'sum-count') === '3명' && text(w2, 'sum-amount') === text(w, 'sum-amount'));
+  check('측 선택 화면이 다시 뜨지 않고 신랑측 유지', isHidden(w2, 'side-setup') && text(w2, 'side-label') === '신랑측 접수대');
 
   console.log('[11] 손상된 저장 데이터에서도 앱이 열린다');
   const w3 = boot('{깨진json').window;
-  check('깨진 데이터 → 빈 상태로 시작', text(w3, 'sum-count') === '0명');
+  check('깨진 데이터 → 빈 상태 + 측 선택 화면', text(w3, 'sum-count') === '0명' && !isHidden(w3, 'side-setup'));
 
-  console.log('[12] CSV 내보내기 (다운로드 폴백)');
+  console.log('[12] 예전 형식(측 없음, 양쪽 연습 데이터) 불러오기');
+  const legacy = JSON.stringify({
+    version: 1,
+    lastSide: 'groom',
+    entries: [entry('l1', 'groom', '홍길동', 100000, 1), entry('l2', 'groom', '이철수', 50000, 0), entry('l3', 'bride', '김영희', 30000, 1)],
+  });
+  const w4 = boot(legacy).window;
+  check('측 선택 전에는 어떤 내역도 합계·목록에 보이지 않는다', !isHidden(w4, 'side-setup') && text(w4, 'sum-count') === '0명' && qa(w4, '.item').length === 0);
+  let confirmMsg = '';
+  w4.confirm = (m) => { confirmMsg = m; return false; };
+  chooseSide(w4, 'groom');
+  check('확인창에서 취소 → 측 선택 화면 유지, 데이터 보존', !isHidden(w4, 'side-setup') && stored(w4).entries.length === 3 && confirmMsg.includes('1건'), confirmMsg);
+  w4.confirm = () => true;
+  chooseSide(w4, 'groom');
+  check('확인 → 신랑측만 남고 2명/150,000원', isHidden(w4, 'side-setup') && text(w4, 'sum-count') === '2명' && text(w4, 'sum-amount') === '150,000원', [text(w4, 'sum-count'), text(w4, 'sum-amount')]);
+  check('상대측 항목은 저장소에서도 제거됨', stored(w4).entries.length === 2 && stored(w4).entries.every((e) => e.side === 'groom'));
+
+  console.log('[13] CSV 내보내기: 이 기기의 측 데이터만');
   let blobText = null;
   let downloadName = null;
   w.URL.createObjectURL = (blob) => {
@@ -164,19 +180,29 @@ const click = (w, id) => w.document.getElementById(id).click();
   };
   click(w, 'export');
   await new Promise((r) => setTimeout(r, 100));
-  check('파일명 축의금_YYYYMMDD.csv', /^축의금_\d{8}\.csv$/.test(downloadName || ''), downloadName);
-  check('CSV 내용: 헤더 + 합계 포함', !!blobText && blobText.includes('번호,구분,이름') && blobText.includes('전체 합계,3명'), blobText && blobText.slice(0, 80));
+  check('파일명 축의금_신랑측_YYYYMMDD.csv', /^축의금_신랑측_\d{8}\.csv$/.test(downloadName || ''), downloadName);
+  check('CSV: 신랑측 합계 포함, 신부측/전체 합계 없음', !!blobText && blobText.includes('신랑측 합계,3명') && !/신부측|전체 합계/.test(blobText), blobText && blobText.slice(0, 120));
 
-  console.log('[13] 전체 삭제 (확인 문구 입력)');
+  console.log('[14] 측 변경 규칙 / 전체 삭제');
+  click(w, 'change-side');
+  check('접수 내역이 있으면 측 변경 불가 (안내 문구)', isHidden(w, 'side-setup') && text(w, 'side-label') === '신랑측 접수대' && text(w, 'toast').includes('전체 삭제'), text(w, 'toast'));
   w.prompt = () => '취소';
   click(w, 'reset-all');
   check('다른 문구 입력 시 삭제되지 않음', text(w, 'sum-count') === '3명');
   w.prompt = () => '삭제';
   click(w, 'reset-all');
-  check('"삭제" 입력 시 전체 삭제', text(w, 'sum-count') === '0명' && qa(w, '.item').length === 0);
-  check('삭제 내용이 저장소에도 반영', JSON.parse(w.localStorage.getItem('wedding-gift-v1')).entries.length === 0);
+  check('"삭제" 입력 시 전체 삭제, 측은 유지', text(w, 'sum-count') === '0명' && qa(w, '.item').length === 0 && stored(w).side === 'groom' && stored(w).entries.length === 0);
+  click(w, 'change-side');
+  check('내역이 비면 측 변경 → 선택 화면 다시 열림', !isHidden(w, 'side-setup') && stored(w).side === null);
+  chooseSide(w, 'bride');
+  check('신부측 선택 → "신부측 접수대" 표시', text(w, 'side-label') === '신부측 접수대' && w.document.body.dataset.side === 'bride');
+  setName(w, '박지민');
+  amt(w, '3만').click();
+  click(w, 'submit');
+  check('신부측으로 등록 → 저장 항목 측이 bride', stored(w).entries.length === 1 && stored(w).entries[0].side === 'bride');
+  check('신랑측 문구가 화면에 없다', !/신랑측|전체 합계/.test(visibleText(w)), visibleText(w));
 
-  console.log('[14] 앱 설치 안내');
+  console.log('[15] 앱 설치 안내');
   const wait = () => new Promise((r) => setTimeout(r, 20));
   const bar = (win) => win.document.getElementById('install-bar');
   const IPAD_UA = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
@@ -190,27 +216,24 @@ const click = (w, id) => w.document.getElementById(id).click();
   ev.prompt = () => { prompted = true; };
   ev.userChoice = Promise.resolve({ outcome: 'accepted' });
   wChrome.dispatchEvent(ev);
-  check('크롬: 설치 프롬프트가 오면 "앱 설치" 버튼 표시', bar(wChrome).hidden === false && text(wChrome, 'install-btn') === '앱 설치', text(wChrome, 'install-btn'));
+  check('크롬: 설치 프롬프트가 오면 "앱 설치" 버튼 표시', bar(wChrome).hidden === false && text(wChrome, 'install-btn') === '앱 설치');
   click(wChrome, 'install-btn');
   await wait();
   check('크롬: 버튼 누르면 브라우저 설치 창 호출, 안내 바 닫힘', prompted === true && bar(wChrome).hidden === true);
 
   const wIpad = boot(null, { userAgent: IPAD_UA }).window;
-  check('아이패드: "설치 방법 보기" 버튼 표시', bar(wIpad).hidden === false && text(wIpad, 'install-btn') === '설치 방법 보기', text(wIpad, 'install-btn'));
-  check('아이패드: 가이드는 처음엔 닫혀 있음', wIpad.document.getElementById('install-guide').hidden === true);
+  check('아이패드: "설치 방법 보기" 버튼 표시', bar(wIpad).hidden === false && text(wIpad, 'install-btn') === '설치 방법 보기');
   click(wIpad, 'install-btn');
-  check('아이패드: 버튼 → 홈 화면에 추가 가이드 표시', wIpad.document.getElementById('install-guide').hidden === false && text(wIpad, 'guide-title').includes('홈 화면에 추가'));
+  check('아이패드: 버튼 → 홈 화면에 추가 가이드 표시', !isHidden(wIpad, 'install-guide') && text(wIpad, 'guide-title').includes('홈 화면에 추가'));
   click(wIpad, 'guide-close');
-  check('아이패드: 확인 → 가이드 닫힘', wIpad.document.getElementById('install-guide').hidden === true);
+  check('아이패드: 확인 → 가이드 닫힘', isHidden(wIpad, 'install-guide'));
   click(wIpad, 'install-dismiss');
   check('아이패드: 닫기 → 안내 바 숨김', bar(wIpad).hidden === true);
 
   const wIpadOS = boot(null, { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', platform: 'MacIntel', maxTouchPoints: 5 }).window;
   check('iPadOS(맥으로 보고되는 UA)도 안내 표시', bar(wIpadOS).hidden === false);
-
   const wMac = boot(null, { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', platform: 'MacIntel', maxTouchPoints: 0 }).window;
   check('맥 데스크톱 Safari는 안내 없음', bar(wMac).hidden === true);
-
   const wInstalled = boot(null, { userAgent: IPAD_UA, standalone: true }).window;
   check('이미 홈 화면 앱으로 실행 중이면 안내 숨김', bar(wInstalled).hidden === true);
 

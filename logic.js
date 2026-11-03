@@ -123,6 +123,12 @@
     );
   }
 
+  // 기기의 측을 고정할 때 다른 측 항목은 제외한다. dropped = 제외된 개수
+  function lockSide(entries, side) {
+    const kept = entries.filter((e) => e.side === side);
+    return { entries: kept, dropped: entries.length - kept.length };
+  }
+
   /* ---------- 집계 ---------- */
 
   function summarize(entries) {
@@ -149,11 +155,14 @@
     return s;
   }
 
-  function toCSV(entries, { bom = false } = {}) {
+  // 한쪽(side) 데이터만 내보낸다. 다른 측 항목과 전체 합계는 절대 포함하지 않는다.
+  function toCSV(entries, { side, bom = false } = {}) {
+    if (!hasSide(side)) throw new Error('toCSV: side(groom/bride)를 지정해야 합니다.');
+    const own = entries.filter((e) => e.side === side);
     const row = (cells) => cells.join(',');
     const lines = [row(['번호', '구분', '이름', '축의금(원)', '식권(장)', '접수시각'])];
 
-    entries.forEach((e, i) => {
+    own.forEach((e, i) => {
       lines.push(
         row([
           i + 1,
@@ -166,11 +175,9 @@
       );
     });
 
-    const s = summarize(entries);
+    const s = summarize(own);
     lines.push('');
-    lines.push(row(['', '신랑측 합계', `${s.bySide.groom.count}명`, s.bySide.groom.amount, s.bySide.groom.meals, '']));
-    lines.push(row(['', '신부측 합계', `${s.bySide.bride.count}명`, s.bySide.bride.amount, s.bySide.bride.meals, '']));
-    lines.push(row(['', '전체 합계', `${s.count}명`, s.amount, s.meals, '']));
+    lines.push(row(['', `${SIDES[side]} 합계`, `${s.count}명`, s.amount, s.meals, '']));
 
     return (bom ? '﻿' : '') + lines.join('\r\n') + '\r\n';
   }
@@ -178,11 +185,11 @@
   /* ---------- 저장 / 복원 ---------- */
 
   function serialize(state) {
-    return JSON.stringify({ version: STORAGE_VERSION, lastSide: state.lastSide, entries: state.entries });
+    return JSON.stringify({ version: STORAGE_VERSION, side: state.side, entries: state.entries });
   }
 
   function parseStored(raw) {
-    const empty = { entries: [], lastSide: 'groom' };
+    const empty = { entries: [], side: null };
     if (!raw) return empty;
 
     let data;
@@ -200,7 +207,10 @@
         entries.push({ id: e.id, ...v.value, createdAt: typeof e.createdAt === 'string' ? e.createdAt : '' });
       }
     }
-    return { entries, lastSide: hasSide(data.lastSide) ? data.lastSide : 'groom' };
+    // side가 없으면(첫 실행·예전 형식) 미선택(null). 측이 고정된 기기에서는 다른 측 데이터가
+    // 섞여 있어도 집계·내보내기에 나오지 않도록 걸러낸다.
+    const side = hasSide(data.side) ? data.side : null;
+    return { entries: side ? entries.filter((e) => e.side === side) : entries, side };
   }
 
   /* ---------- 앱 설치(PWA) 안내 ---------- */
@@ -235,6 +245,7 @@
     removeEntry,
     insertEntryAt,
     filterEntries,
+    lockSide,
     summarize,
     toCSV,
     serialize,

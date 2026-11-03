@@ -117,6 +117,16 @@ test('filterEntries: 이름 검색(대소문자 무시)과 측 필터', () => {
   assert.equal(L.filterEntries(list, {}).length, 4);
 });
 
+/* ---------- 측 고정 ---------- */
+
+test('lockSide: 선택한 측만 남기고 제외된 개수를 알려준다', () => {
+  const r = L.lockSide(sample(), 'groom');
+  assert.deepEqual(r.entries.map((e) => e.id), ['a', 'c']);
+  assert.equal(r.dropped, 1);
+  const none = L.lockSide([], 'bride');
+  assert.deepEqual(none, { entries: [], dropped: 0 });
+});
+
 /* ---------- 집계 ---------- */
 
 test('summarize: 전체와 측별 인원/금액/식권', () => {
@@ -133,65 +143,92 @@ test('summarize: 빈 목록은 모두 0', () => {
   assert.equal(s.bySide.bride.meals, 0);
 });
 
-/* ---------- CSV ---------- */
+/* ---------- CSV (한쪽 데이터만) ---------- */
 
-test('toCSV: 헤더/행/합계 구조와 CRLF', () => {
-  const csv = L.toCSV(sample().slice(0, 2));
+test('toCSV: 헤더/행/합계 구조와 CRLF — 선택한 측 데이터만', () => {
+  const csv = L.toCSV(sample(), { side: 'groom' });
   assert.deepEqual(csv.split('\r\n'), [
     '번호,구분,이름,축의금(원),식권(장),접수시각',
     '1,신랑측,홍길동,150000,2,2026-11-04 13:05:09',
-    '2,신부측,김영희,50000,1,2026-11-04 13:05:09',
+    '2,신랑측,이철수,30000,0,2026-11-04 13:05:09',
     '',
-    ',신랑측 합계,1명,150000,2,',
-    ',신부측 합계,1명,50000,1,',
-    ',전체 합계,2명,200000,3,',
+    ',신랑측 합계,2명,180000,2,',
     '',
   ]);
 });
 
+test('toCSV: 다른 측 항목과 전체 합계는 절대 포함되지 않는다', () => {
+  const csv = L.toCSV(sample(), { side: 'bride' });
+  assert.ok(csv.includes('김영희'));
+  for (const leaked of ['홍길동', '이철수', '신랑측', '전체', '230000']) {
+    assert.ok(!csv.includes(leaked), `유출됨: ${leaked}`);
+  }
+});
+
+test('toCSV: side를 지정하지 않으면 내보내지 않고 오류를 낸다', () => {
+  assert.throws(() => L.toCSV(sample()), /side/);
+  assert.throws(() => L.toCSV(sample(), { side: 'x' }), /side/);
+});
+
 test('toCSV: bom 옵션을 켜면 UTF-8 BOM이 붙는다 (엑셀 한글 깨짐 방지)', () => {
-  assert.equal(L.toCSV([], { bom: true }).charCodeAt(0), 0xfeff);
-  assert.notEqual(L.toCSV([]).charCodeAt(0), 0xfeff);
+  assert.equal(L.toCSV([], { side: 'groom', bom: true }).charCodeAt(0), 0xfeff);
+  assert.notEqual(L.toCSV([], { side: 'groom' }).charCodeAt(0), 0xfeff);
 });
 
 test('toCSV: 콤마/따옴표 이스케이프와 수식 주입 방지', () => {
   const list = [
     { id: '1', side: 'groom', name: 'Kim, "KJ"', amount: 10000, meals: 0, createdAt: T0 },
-    { id: '2', side: 'bride', name: '=SUM(A1)', amount: 10000, meals: 0, createdAt: T0 },
+    { id: '2', side: 'groom', name: '=SUM(A1)', amount: 10000, meals: 0, createdAt: T0 },
   ];
-  const lines = L.toCSV(list).split('\r\n');
+  const lines = L.toCSV(list, { side: 'groom' }).split('\r\n');
   assert.equal(lines[1], '1,신랑측,"Kim, ""KJ""",10000,0,2026-11-04 13:05:09');
-  assert.equal(lines[2], "2,신부측,'=SUM(A1),10000,0,2026-11-04 13:05:09");
+  assert.equal(lines[2], "2,신랑측,'=SUM(A1),10000,0,2026-11-04 13:05:09");
 });
 
 /* ---------- 저장 / 복원 ---------- */
 
-test('serialize → parseStored 왕복', () => {
-  const state = { entries: sample(), lastSide: 'bride' };
+test('serialize → parseStored 왕복 (측 정보 포함)', () => {
+  const state = { entries: sample().filter((e) => e.side === 'groom'), side: 'groom' };
   assert.deepEqual(L.parseStored(L.serialize(state)), state);
 });
 
 test('parseStored: 깨진 JSON/없는 값/버전 불일치는 빈 상태로 안전하게 처리', () => {
-  const empty = { entries: [], lastSide: 'groom' };
+  const empty = { entries: [], side: null };
   assert.deepEqual(L.parseStored(null), empty);
   assert.deepEqual(L.parseStored('{깨짐'), empty);
   assert.deepEqual(L.parseStored('{"version":99,"entries":[]}'), empty);
   assert.deepEqual(L.parseStored('{"version":1,"entries":"x"}'), empty);
 });
 
-test('parseStored: 유효하지 않은 항목만 걸러내고 나머지는 보존', () => {
+test('parseStored: 유효하지 않은 항목은 걸러내고, 고정된 측이 아닌 항목도 제외한다', () => {
   const raw = JSON.stringify({
     version: 1,
-    lastSide: 'nope',
+    side: 'groom',
     entries: [
       { id: 'ok', side: 'groom', name: '홍길동', amount: 10000, meals: 1, createdAt: T0 },
       { id: 'bad', side: 'groom', name: '', amount: 10000, meals: 1, createdAt: T0 },
       { side: 'groom', name: 'id없음', amount: 10000, meals: 1, createdAt: T0 },
+      { id: 'other', side: 'bride', name: '김영희', amount: 10000, meals: 1, createdAt: T0 },
     ],
   });
   const r = L.parseStored(raw);
   assert.deepEqual(r.entries.map((e) => e.id), ['ok']);
-  assert.equal(r.lastSide, 'groom');
+  assert.equal(r.side, 'groom');
+});
+
+test('parseStored: 측이 없는 예전 형식은 미선택(null)으로 불러오고 데이터는 보존한다', () => {
+  const legacy = JSON.stringify({
+    version: 1,
+    lastSide: 'groom',
+    entries: [
+      { id: 'a', side: 'groom', name: '홍길동', amount: 10000, meals: 0, createdAt: T0 },
+      { id: 'b', side: 'bride', name: '김영희', amount: 10000, meals: 0, createdAt: T0 },
+    ],
+  });
+  const r = L.parseStored(legacy);
+  assert.equal(r.side, null);
+  assert.equal(r.entries.length, 2);
+  assert.equal(L.parseStored('{"version":1,"side":"nope","entries":[]}').side, null);
 });
 
 /* ---------- 날짜 ---------- */
