@@ -128,8 +128,8 @@
       el(
         'div',
         { class: 'acts' },
-        el('button', { type: 'button', class: 'mini', 'data-action': 'edit', 'data-id': e.id, text: '수정' }),
-        el('button', { type: 'button', class: 'mini del', 'data-action': 'delete', 'data-id': e.id, text: '삭제' })
+        el('button', { type: 'button', class: 'mini btn-outlined', 'data-action': 'edit', 'data-id': e.id, text: '수정' }),
+        el('button', { type: 'button', class: 'mini btn-danger', 'data-action': 'delete', 'data-id': e.id, text: '삭제' })
       )
     );
   }
