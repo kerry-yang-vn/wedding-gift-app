@@ -182,6 +182,27 @@
     return (bom ? '﻿' : '') + lines.join('\r\n') + '\r\n';
   }
 
+  /* ---------- 엑셀(.xlsx)용 시트 모델 (한쪽 데이터만) ---------- */
+
+  function toSheetModel(entries, side) {
+    if (!hasSide(side)) throw new Error('toSheetModel: side(groom/bride)를 지정해야 합니다.');
+    const own = entries.filter((e) => e.side === side);
+    const s = summarize(own);
+    return {
+      sheetName: `${SIDES[side]} 축의금`,
+      headers: ['번호', '구분', '이름', '축의금(원)', '식권(장)', '접수시각'],
+      rows: own.map((e, i) => ({
+        no: i + 1,
+        side: SIDES[e.side],
+        name: e.name,
+        amount: e.amount,
+        meals: e.meals,
+        createdAt: e.createdAt,
+      })),
+      total: { label: `${SIDES[side]} 합계`, count: s.count, amount: s.amount, meals: s.meals },
+    };
+  }
+
   /* ---------- 저장 / 복원 ---------- */
 
   function serialize(state) {
@@ -248,6 +269,7 @@
     lockSide,
     summarize,
     toCSV,
+    toSheetModel,
     serialize,
     parseStored,
     detectInstallMode,

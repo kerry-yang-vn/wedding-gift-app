@@ -268,19 +268,12 @@
     }
   }
 
-  /* ---------- CSV 내보내기 (이 기기의 측 데이터만) ---------- */
+  /* ---------- 내보내기 (엑셀 / CSV — 모두 이 기기의 측 데이터만) ---------- */
 
-  async function exportCsv() {
-    if (!state.side || !ownEntries().length) {
-      toast('내보낼 내역이 없습니다');
-      return;
-    }
-    const csv = L.toCSV(state.entries, { side: state.side, bom: true });
-    const filename = `축의금_${L.SIDES[state.side]}_${L.formatDateStamp(new Date())}.csv`;
-
-    // 아이패드: 공유 시트(파일에 저장 / AirDrop / 메일)가 가장 안정적
+  // 아이패드: 공유 시트(파일에 저장 / AirDrop / 메일)를 먼저 시도하고, 안 되면 일반 다운로드로 대체
+  async function deliverFile(parts, filename, mime) {
     try {
-      const file = new File([csv], filename, { type: 'text/csv' });
+      const file = new File(parts, filename, { type: mime });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: `${L.SIDES[state.side]} 축의금 내역` });
         return;
@@ -289,13 +282,35 @@
       if (err && err.name === 'AbortError') return; // 사용자가 공유 시트를 닫음
     }
 
-    // 폴백: 일반 다운로드
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob(parts, { type: mime }));
     const a = el('a', { href: url, download: filename });
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('파일을 내려받았습니다. 저장되지 않았다면 CSV 버튼을 이용해 주세요.');
+  }
+
+  function exportable() {
+    if (!state.side || !ownEntries().length) {
+      toast('내보낼 내역이 없습니다');
+      return false;
+    }
+    return true;
+  }
+
+  const fileStem = () => `축의금_${L.SIDES[state.side]}_${L.formatDateStamp(new Date())}`;
+
+  async function exportExcel() {
+    if (!exportable()) return;
+    const bytes = window.GiftXlsx.build(L.toSheetModel(state.entries, state.side), { now: new Date() });
+    await deliverFile([bytes], `${fileStem()}.xlsx`, window.GiftXlsx.MIME);
+  }
+
+  async function exportCsv() {
+    if (!exportable()) return;
+    const csv = L.toCSV(state.entries, { side: state.side, bom: true });
+    await deliverFile([csv], `${fileStem()}.csv`, 'text/csv;charset=utf-8');
   }
 
   /* ---------- 이벤트 연결 ---------- */
@@ -336,7 +351,8 @@
     else if (btn.dataset.action === 'delete') deleteEntry(btn.dataset.id);
   });
 
-  $('export').addEventListener('click', exportCsv);
+  $('export').addEventListener('click', exportExcel);
+  $('export-csv').addEventListener('click', exportCsv);
   $('reset-all').addEventListener('click', resetAll);
 
   /* ---------- 앱 설치 안내 ---------- */

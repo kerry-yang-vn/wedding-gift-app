@@ -5,6 +5,7 @@ const { JSDOM } = require('jsdom');
 const APP = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
 const logicSrc = fs.readFileSync(path.join(APP, 'logic.js'), 'utf8');
+const xlsxSrc = fs.readFileSync(path.join(APP, 'xlsx.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(APP, 'app.js'), 'utf8');
 
 let passed = 0;
@@ -22,12 +23,14 @@ function boot(seedStorage, env) {
     beforeParse(win) {
       if (seedStorage) win.localStorage.setItem('wedding-gift-v1', seedStorage);
       win.HTMLElement.prototype.scrollIntoView = () => {};
+      win.TextEncoder = TextEncoder; // jsdom에는 없지만 실제 브라우저에는 있다
       for (const [k, v] of Object.entries(env || {})) {
         Object.defineProperty(win.navigator, k, { value: v, configurable: true });
       }
     },
   });
   dom.window.eval(logicSrc);
+  dom.window.eval(xlsxSrc);
   dom.window.eval(appSrc);
   return dom;
 }
@@ -162,13 +165,18 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
   check('확인 → 신랑측만 남고 2명/150,000원', isHidden(w4, 'side-setup') && text(w4, 'sum-count') === '2명' && text(w4, 'sum-amount') === '150,000원', [text(w4, 'sum-count'), text(w4, 'sum-amount')]);
   check('상대측 항목은 저장소에서도 제거됨', stored(w4).entries.length === 2 && stored(w4).entries.every((e) => e.side === 'groom'));
 
-  console.log('[13] CSV 내보내기: 이 기기의 측 데이터만');
+  console.log('[13] 내보내기: 이 기기의 측 데이터만 (엑셀 / CSV)');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let blobBytes = null;
   let blobText = null;
   let downloadName = null;
   w.URL.createObjectURL = (blob) => {
-    const fr = new w.FileReader();
-    fr.onload = () => { blobText = fr.result; };
-    fr.readAsText(blob);
+    const fr1 = new w.FileReader();
+    fr1.onload = () => { blobBytes = new Uint8Array(fr1.result); };
+    fr1.readAsArrayBuffer(blob);
+    const fr2 = new w.FileReader();
+    fr2.onload = () => { blobText = fr2.result; };
+    fr2.readAsText(blob);
     return 'blob:test';
   };
   w.URL.revokeObjectURL = () => {};
@@ -179,8 +187,14 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
     return n;
   };
   click(w, 'export');
-  await new Promise((r) => setTimeout(r, 100));
-  check('파일명 축의금_신랑측_YYYYMMDD.csv', /^축의금_신랑측_\d{8}\.csv$/.test(downloadName || ''), downloadName);
+  await sleep(150);
+  check('엑셀: 파일명 축의금_신랑측_YYYYMMDD.xlsx', /^축의금_신랑측_\d{8}\.xlsx$/.test(downloadName || ''), downloadName);
+  check('엑셀: 올바른 .xlsx(ZIP, "PK" 시그니처) 파일이 만들어짐', !!blobBytes && blobBytes[0] === 0x50 && blobBytes[1] === 0x4b && blobBytes.length > 500, blobBytes && blobBytes.length);
+  check('엑셀 버튼을 눌러도 CSV 텍스트가 아닌 바이너리', !!blobText && !blobText.includes('번호,구분,이름'));
+  blobBytes = null; blobText = null; downloadName = null;
+  click(w, 'export-csv');
+  await sleep(150);
+  check('CSV: 파일명 축의금_신랑측_YYYYMMDD.csv', /^축의금_신랑측_\d{8}\.csv$/.test(downloadName || ''), downloadName);
   check('CSV: 신랑측 합계 포함, 신부측/전체 합계 없음', !!blobText && blobText.includes('신랑측 합계,3명') && !/신부측|전체 합계/.test(blobText), blobText && blobText.slice(0, 120));
 
   console.log('[14] 측 변경 규칙 / 전체 삭제');

@@ -185,6 +185,24 @@ test('toCSV: 콤마/따옴표 이스케이프와 수식 주입 방지', () => {
   assert.equal(lines[2], "2,신랑측,'=SUM(A1),10000,0,2026-11-04 13:05:09");
 });
 
+/* ---------- 엑셀용 시트 모델 (한쪽 데이터만) ---------- */
+
+test('toSheetModel: 선택한 측 항목과 합계만 담는다', () => {
+  const m = L.toSheetModel(sample(), 'groom');
+  assert.equal(m.sheetName, '신랑측 축의금');
+  assert.deepEqual(m.rows.map((r) => [r.no, r.name, r.amount, r.meals]), [
+    [1, '홍길동', 150000, 2],
+    [2, '이철수', 30000, 0],
+  ]);
+  assert.deepEqual(m.total, { label: '신랑측 합계', count: 2, amount: 180000, meals: 2 });
+  assert.ok(!JSON.stringify(m).includes('김영희'));
+});
+
+test('toSheetModel: side를 지정하지 않으면 오류', () => {
+  assert.throws(() => L.toSheetModel(sample()), /side/);
+  assert.throws(() => L.toSheetModel(sample(), 'x'), /side/);
+});
+
 /* ---------- 저장 / 복원 ---------- */
 
 test('serialize → parseStored 왕복 (측 정보 포함)', () => {
