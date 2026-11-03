@@ -45,6 +45,7 @@
     }
     .stat { background: var(--navy); padding: 10px 16px; display: flex; flex-direction: column; min-width: 0; }
     .stat .k { font-size: 13px; color: #b9c3dd; }
+    .stat .k small { font-size: 12px; margin-left: 4px; color: #ffd9b8; white-space: nowrap; }
     .stat strong { font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .stat.side-label { border-top: 4px solid #6b7897; }
     .stat.side-label strong { font-size: 22px; }
@@ -90,8 +91,10 @@
     .ghost { min-height: 48px; border: 2px solid var(--line); background: #fff; font-weight: 600; }
 
     .stepper { display: grid; grid-template-columns: 76px 1fr 76px; gap: 8px; align-items: center; }
-    .stepper button { min-height: 64px; font-size: 32px; font-weight: 700; background: #eaf0fc; border: 2px solid #cfdaf1; }
-    .stepper output { text-align: center; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .stepper-line { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .stepper-name { font-weight: 800; color: var(--ink); }
+    .stepper button { min-height: 56px; font-size: 30px; font-weight: 700; background: #eaf0fc; border: 2px solid #cfdaf1; }
+    .stepper output { text-align: center; font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
     .msg { min-height: 1.4em; margin: 0 0 8px; color: var(--danger); font-weight: 600; }
     .primary { width: 100%; min-height: 68px; font-size: 22px; font-weight: 800; background: var(--ok); color: #fff; }
@@ -170,7 +173,7 @@
     <div class="stat side-label"><span class="k">접수대</span><strong id="side-label">선택 필요</strong></div>
     <div class="stat"><span class="k">총 인원</span><strong id="sum-count">0명</strong></div>
     <div class="stat"><span class="k">총 축의금</span><strong id="sum-amount">0원</strong></div>
-    <div class="stat"><span class="k">식권 발급</span><strong id="sum-meals">0장</strong></div>
+    <div class="stat"><span class="k">식권 발급 <small id="sum-meals-detail">대인 0 · 소인 0</small></span><strong id="sum-meals">0장</strong></div>
   </header>
 
   <div id="install-bar" class="install-bar" hidden>
@@ -213,10 +216,21 @@
 
       <div class="field">
         <span class="label">식권</span>
-        <div class="stepper">
-          <button type="button" id="meal-minus" aria-label="식권 한 장 줄이기">−</button>
-          <output id="meal-view" aria-live="polite">0장</output>
-          <button type="button" id="meal-plus" aria-label="식권 한 장 늘리기">+</button>
+        <div class="stepper-line">
+          <span class="stepper-name">대인</span>
+          <div class="stepper">
+            <button type="button" id="meal-minus" aria-label="대인 식권 한 장 줄이기">−</button>
+            <output id="meal-view" aria-live="polite">0장</output>
+            <button type="button" id="meal-plus" aria-label="대인 식권 한 장 늘리기">+</button>
+          </div>
+        </div>
+        <div class="stepper-line">
+          <span class="stepper-name">소인</span>
+          <div class="stepper">
+            <button type="button" id="kid-minus" aria-label="소인 식권 한 장 줄이기">−</button>
+            <output id="kid-view" aria-live="polite">0장</output>
+            <button type="button" id="kid-plus" aria-label="소인 식권 한 장 늘리기">+</button>
+          </div>
         </div>
       </div>
 

@@ -76,7 +76,8 @@
     const name = normalizeName(src.name);
     const side = src.side;
     const amount = Number(src.amount);
-    const meals = Number(src.meals);
+    const meals = Number(src.meals); // 식권 대인(장)
+    const kidMeals = src.kidMeals == null || src.kidMeals === '' ? 0 : Number(src.kidMeals); // 식권 소인(장)
 
     if (!name) errors.push('이름을 입력해 주세요.');
     else if (name.length > MAX_NAME_LENGTH) errors.push(`이름은 ${MAX_NAME_LENGTH}자 이하로 입력해 주세요.`);
@@ -86,26 +87,28 @@
     if (!Number.isInteger(amount) || amount <= 0) errors.push('축의금 금액을 선택해 주세요.');
     else if (amount > MAX_AMOUNT) errors.push(`축의금은 ${formatWon(MAX_AMOUNT)} 이하로 입력해 주세요.`);
 
-    if (!Number.isInteger(meals) || meals < 0 || meals > MAX_MEALS) {
-      errors.push(`식권은 0~${MAX_MEALS}장 사이로 입력해 주세요.`);
+    for (const [label, n] of [['대인', meals], ['소인', kidMeals]]) {
+      if (!Number.isInteger(n) || n < 0 || n > MAX_MEALS) {
+        errors.push(`식권(${label})은 0~${MAX_MEALS}장 사이로 입력해 주세요.`);
+      }
     }
 
     return {
       ok: errors.length === 0,
       errors,
-      value: errors.length === 0 ? { name, side, amount, meals } : null,
+      value: errors.length === 0 ? { name, side, amount, meals, kidMeals } : null,
     };
   }
 
   function createEntry(value, id, createdAt) {
-    return { id, side: value.side, name: value.name, amount: value.amount, meals: value.meals, createdAt };
+    return { id, side: value.side, name: value.name, amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0, createdAt };
   }
 
   /* ---------- 목록 조작 (불변: 항상 새 배열 반환) ---------- */
 
   function updateEntry(entries, id, value) {
     return entries.map((e) =>
-      e.id === id ? { ...e, side: value.side, name: value.name, amount: value.amount, meals: value.meals } : e
+      e.id === id ? { ...e, side: value.side, name: value.name, amount: value.amount, meals: value.meals, kidMeals: value.kidMeals || 0 } : e
     );
   }
 
@@ -140,7 +143,7 @@
   /* ---------- 집계 ---------- */
 
   function summarize(entries) {
-    const empty = () => ({ count: 0, amount: 0, meals: 0 });
+    const empty = () => ({ count: 0, amount: 0, meals: 0, kidMeals: 0, totalMeals: 0 });
     const result = { ...empty(), bySide: { groom: empty(), bride: empty() } };
     for (const e of entries) {
       const bucket = result.bySide[e.side];
@@ -148,6 +151,8 @@
         target.count += 1;
         target.amount += e.amount;
         target.meals += e.meals;
+        target.kidMeals += e.kidMeals || 0;
+        target.totalMeals += e.meals + (e.kidMeals || 0);
       }
     }
     return result;
@@ -168,7 +173,7 @@
     if (!hasSide(side)) throw new Error('toCSV: side(groom/bride)를 지정해야 합니다.');
     const own = entries.filter((e) => e.side === side);
     const row = (cells) => cells.join(',');
-    const lines = [row(['번호', '구분', '이름', '축의금(원)', '식권(장)', '접수시각'])];
+    const lines = [row(['번호', '구분', '이름', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'])];
 
     own.forEach((e, i) => {
       lines.push(
@@ -178,6 +183,8 @@
           csvCell(e.name, true),
           e.amount,
           e.meals,
+          e.kidMeals || 0,
+          e.meals + (e.kidMeals || 0),
           csvCell(formatDateTime(e.createdAt)),
         ])
       );
@@ -185,7 +192,7 @@
 
     const s = summarize(own);
     lines.push('');
-    lines.push(row(['', `${SIDES[side]} 합계`, `${s.count}명`, s.amount, s.meals, '']));
+    lines.push(row(['', `${SIDES[side]} 합계`, `${s.count}명`, s.amount, s.meals, s.kidMeals, s.totalMeals, '']));
 
     return (bom ? '﻿' : '') + lines.join('\r\n') + '\r\n';
   }
@@ -198,16 +205,18 @@
     const s = summarize(own);
     return {
       sheetName: `${SIDES[side]} 축의금`,
-      headers: ['번호', '구분', '이름', '축의금(원)', '식권(장)', '접수시각'],
+      headers: ['번호', '구분', '이름', '축의금(원)', '식권 대인(장)', '식권 소인(장)', '식권 합계(장)', '접수시각'],
       rows: own.map((e, i) => ({
         no: i + 1,
         side: SIDES[e.side],
         name: e.name,
         amount: e.amount,
         meals: e.meals,
+        kidMeals: e.kidMeals || 0,
+        totalMeals: e.meals + (e.kidMeals || 0),
         createdAt: e.createdAt,
       })),
-      total: { label: `${SIDES[side]} 합계`, count: s.count, amount: s.amount, meals: s.meals },
+      total: { label: `${SIDES[side]} 합계`, count: s.count, amount: s.amount, meals: s.meals, kidMeals: s.kidMeals, totalMeals: s.totalMeals },
     };
   }
 

@@ -5,9 +5,9 @@ const L = require('../logic.js');
 const T0 = new Date(2026, 10, 4, 13, 5, 9).toISOString(); // 로컬 시간 기준 2026-11-04 13:05:09
 
 const sample = () => [
-  { id: 'a', side: 'groom', name: '홍길동', amount: 150000, meals: 2, createdAt: T0 },
-  { id: 'b', side: 'bride', name: '김영희', amount: 50000, meals: 1, createdAt: T0 },
-  { id: 'c', side: 'groom', name: '이철수', amount: 30000, meals: 0, createdAt: T0 },
+  { id: 'a', side: 'groom', name: '홍길동', amount: 150000, meals: 2, kidMeals: 1, createdAt: T0 },
+  { id: 'b', side: 'bride', name: '김영희', amount: 50000, meals: 1, kidMeals: 0, createdAt: T0 },
+  { id: 'c', side: 'groom', name: '이철수', amount: 30000, meals: 0, kidMeals: 0, createdAt: T0 },
 ];
 
 /* ---------- 금액 / 표시 ---------- */
@@ -45,7 +45,7 @@ test('clampMeals: 0 미만/99 초과로 가지 않는다', () => {
 test('validateEntry: 정상 입력은 공백을 정리해 반환한다', () => {
   const r = L.validateEntry({ name: '  홍   길동 ', side: 'groom', amount: 50000, meals: 2 });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.value, { name: '홍 길동', side: 'groom', amount: 50000, meals: 2 });
+  assert.deepEqual(r.value, { name: '홍 길동', side: 'groom', amount: 50000, meals: 2, kidMeals: 0 });
 });
 
 test('validateEntry: 식권 기본값 0장은 허용한다', () => {
@@ -74,7 +74,7 @@ test('validateEntry: 너무 긴 이름은 거부한다', () => {
 
 test('createEntry: id와 접수시각이 붙는다', () => {
   const e = L.createEntry({ name: 'A', side: 'groom', amount: 10000, meals: 1 }, 'id1', T0);
-  assert.deepEqual(e, { id: 'id1', side: 'groom', name: 'A', amount: 10000, meals: 1, createdAt: T0 });
+  assert.deepEqual(e, { id: 'id1', side: 'groom', name: 'A', amount: 10000, meals: 1, kidMeals: 0, createdAt: T0 });
 });
 
 test('updateEntry: id/접수시각은 유지하고 값만 바꾼다 (원본 불변)', () => {
@@ -131,9 +131,12 @@ test('lockSide: 선택한 측만 남기고 제외된 개수를 알려준다', ()
 
 test('summarize: 전체와 측별 인원/금액/식권', () => {
   const s = L.summarize(sample());
-  assert.deepEqual({ count: s.count, amount: s.amount, meals: s.meals }, { count: 3, amount: 230000, meals: 3 });
-  assert.deepEqual(s.bySide.groom, { count: 2, amount: 180000, meals: 2 });
-  assert.deepEqual(s.bySide.bride, { count: 1, amount: 50000, meals: 1 });
+  assert.deepEqual(
+    { count: s.count, amount: s.amount, meals: s.meals, kidMeals: s.kidMeals, totalMeals: s.totalMeals },
+    { count: 3, amount: 230000, meals: 3, kidMeals: 1, totalMeals: 4 }
+  );
+  assert.deepEqual(s.bySide.groom, { count: 2, amount: 180000, meals: 2, kidMeals: 1, totalMeals: 3 });
+  assert.deepEqual(s.bySide.bride, { count: 1, amount: 50000, meals: 1, kidMeals: 0, totalMeals: 1 });
 });
 
 test('summarize: 빈 목록은 모두 0', () => {
@@ -148,11 +151,11 @@ test('summarize: 빈 목록은 모두 0', () => {
 test('toCSV: 헤더/행/합계 구조와 CRLF — 선택한 측 데이터만', () => {
   const csv = L.toCSV(sample(), { side: 'groom' });
   assert.deepEqual(csv.split('\r\n'), [
-    '번호,구분,이름,축의금(원),식권(장),접수시각',
-    '1,신랑측,홍길동,150000,2,2026-11-04 13:05:09',
-    '2,신랑측,이철수,30000,0,2026-11-04 13:05:09',
+    '번호,구분,이름,축의금(원),식권 대인(장),식권 소인(장),식권 합계(장),접수시각',
+    '1,신랑측,홍길동,150000,2,1,3,2026-11-04 13:05:09',
+    '2,신랑측,이철수,30000,0,0,0,2026-11-04 13:05:09',
     '',
-    ',신랑측 합계,2명,180000,2,',
+    ',신랑측 합계,2명,180000,2,1,3,',
     '',
   ]);
 });
@@ -181,8 +184,8 @@ test('toCSV: 콤마/따옴표 이스케이프와 수식 주입 방지', () => {
     { id: '2', side: 'groom', name: '=SUM(A1)', amount: 10000, meals: 0, createdAt: T0 },
   ];
   const lines = L.toCSV(list, { side: 'groom' }).split('\r\n');
-  assert.equal(lines[1], '1,신랑측,"Kim, ""KJ""",10000,0,2026-11-04 13:05:09');
-  assert.equal(lines[2], "2,신랑측,'=SUM(A1),10000,0,2026-11-04 13:05:09");
+  assert.equal(lines[1], '1,신랑측,"Kim, ""KJ""",10000,0,0,0,2026-11-04 13:05:09');
+  assert.equal(lines[2], "2,신랑측,'=SUM(A1),10000,0,0,0,2026-11-04 13:05:09");
 });
 
 /* ---------- 엑셀용 시트 모델 (한쪽 데이터만) ---------- */
@@ -190,11 +193,11 @@ test('toCSV: 콤마/따옴표 이스케이프와 수식 주입 방지', () => {
 test('toSheetModel: 선택한 측 항목과 합계만 담는다', () => {
   const m = L.toSheetModel(sample(), 'groom');
   assert.equal(m.sheetName, '신랑측 축의금');
-  assert.deepEqual(m.rows.map((r) => [r.no, r.name, r.amount, r.meals]), [
-    [1, '홍길동', 150000, 2],
-    [2, '이철수', 30000, 0],
+  assert.deepEqual(m.rows.map((r) => [r.no, r.name, r.amount, r.meals, r.kidMeals, r.totalMeals]), [
+    [1, '홍길동', 150000, 2, 1, 3],
+    [2, '이철수', 30000, 0, 0, 0],
   ]);
-  assert.deepEqual(m.total, { label: '신랑측 합계', count: 2, amount: 180000, meals: 2 });
+  assert.deepEqual(m.total, { label: '신랑측 합계', count: 2, amount: 180000, meals: 2, kidMeals: 1, totalMeals: 3 });
   assert.ok(!JSON.stringify(m).includes('김영희'));
 });
 
@@ -293,4 +296,26 @@ test('parseAmountInput: 직접 입력 금액 해석', () => {
   assert.equal(L.parseAmountInput('2만'), null);
   assert.equal(L.parseAmountInput(null), null);
   assert.equal(L.parseAmountInput('9'.repeat(13)), null);
+});
+
+/* ---------- 식권 대인/소인 ---------- */
+
+test('validateEntry: 소인 식권 — 생략하면 0, 범위를 벗어나면 오류', () => {
+  assert.equal(L.validateEntry({ name: 'A', side: 'groom', amount: 10000, meals: 1 }).value.kidMeals, 0);
+  assert.equal(L.validateEntry({ name: 'A', side: 'groom', amount: 10000, meals: 1, kidMeals: 2 }).value.kidMeals, 2);
+  const bad = L.validateEntry({ name: 'A', side: 'groom', amount: 10000, meals: 0, kidMeals: L.MAX_MEALS + 1 });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.errors[0].includes('소인'));
+  assert.equal(L.validateEntry({ name: 'A', side: 'groom', amount: 10000, meals: 0, kidMeals: -1 }).ok, false);
+  assert.equal(L.validateEntry({ name: 'A', side: 'groom', amount: 10000, meals: 0, kidMeals: 1.5 }).ok, false);
+});
+
+test('updateEntry/parseStored: 소인 식권이 수정·저장·복원된다 (이전 데이터는 소인 0)', () => {
+  const after = L.updateEntry(sample(), 'c', { name: '이철수', side: 'groom', amount: 30000, meals: 1, kidMeals: 2 });
+  const c = after.find((e) => e.id === 'c');
+  assert.deepEqual([c.meals, c.kidMeals], [1, 2]);
+  const back = L.parseStored(L.serialize({ side: 'groom', entries: after }));
+  assert.deepEqual(back.entries.find((e) => e.id === 'c').kidMeals, 2);
+  const old = JSON.stringify({ version: 1, side: 'groom', entries: [{ id: 'x', side: 'groom', name: '구', amount: 10000, meals: 2, createdAt: T0 }] });
+  assert.equal(L.parseStored(old).entries[0].kidMeals, 0);
 });

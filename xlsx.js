@@ -143,8 +143,8 @@
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '</styleSheet>';
 
-  const COLS = ['A', 'B', 'C', 'D', 'E', 'F'];
-  const COL_WIDTHS = [8, 10, 18, 16, 12, 22];
+  const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const COL_WIDTHS = [8, 10, 18, 16, 14, 14, 14, 22];
 
   function buildSheetXml(model) {
     const text = (ref, value, style) =>
@@ -164,7 +164,9 @@
           text(`C${n}`, r.name) +
           num(`D${n}`, r.amount, 2) +
           num(`E${n}`, r.meals, 3) +
-          (serial === null ? '' : num(`F${n}`, serial, 4)) +
+          num(`F${n}`, r.kidMeals, 3) +
+          num(`G${n}`, r.totalMeals, 3) +
+          (serial === null ? '' : num(`H${n}`, serial, 4)) +
           '</row>'
       );
     });
@@ -181,6 +183,8 @@
         text(`C${totalRow}`, `${model.total.count}명`, 5) +
         sum('D', model.total.amount, 6) +
         sum('E', model.total.meals, 7) +
+        sum('F', model.total.kidMeals, 7) +
+        sum('G', model.total.totalMeals, 7) +
         '</row>'
     );
 
@@ -188,11 +192,11 @@
     return (
       XML_HEAD +
       `<worksheet xmlns="${NS}">` +
-      `<dimension ref="A1:F${totalRow}"/>` +
+      `<dimension ref="A1:H${totalRow}"/>` +
       '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
       `<cols>${cols}</cols>` +
       `<sheetData>${rows.join('')}</sheetData>` +
-      `<autoFilter ref="A1:F${last}"/>` +
+      `<autoFilter ref="A1:H${last}"/>` +
       '</worksheet>'
     );
   }

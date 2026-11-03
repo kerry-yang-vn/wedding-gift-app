@@ -8,7 +8,7 @@ const T0 = new Date(2026, 10, 4, 13, 5, 9).toISOString();
 const NOW = new Date(2026, 10, 4, 14, 0, 0);
 
 const sample = () => [
-  { id: 'a', side: 'groom', name: '홍길동', amount: 150000, meals: 2, createdAt: T0 },
+  { id: 'a', side: 'groom', name: '홍길동', amount: 150000, meals: 2, kidMeals: 1, createdAt: T0 },
   { id: 'b', side: 'bride', name: '김영희', amount: 50000, meals: 1, createdAt: T0 },
   { id: 'c', side: 'groom', name: '이철수', amount: 30000, meals: 0, createdAt: T0 },
 ];
@@ -65,8 +65,12 @@ test('시트 내용: 선택한 측 데이터와 SUM 합계 수식(캐시값 포�
   assert.ok(sheet.includes('홍길동') && sheet.includes('이철수'));
   assert.ok(sheet.includes('신랑측 합계') && sheet.includes('2명'));
   assert.ok(sheet.includes('<f>SUM(D2:D3)</f><v>180000</v>'));
-  assert.ok(sheet.includes('<f>SUM(E2:E3)</f><v>2</v>'));
-  assert.ok(sheet.includes('<autoFilter ref="A1:F3"/>'));
+  assert.ok(sheet.includes('<f>SUM(E2:E3)</f><v>2</v>'), '대인 합계');
+  assert.ok(sheet.includes('<f>SUM(F2:F3)</f><v>1</v>'), '소인 합계');
+  assert.ok(sheet.includes('<f>SUM(G2:G3)</f><v>3</v>'), '식권 합계');
+  assert.ok(sheet.includes('<c r="E2" s="3"><v>2</v></c><c r="F2" s="3"><v>1</v></c><c r="G2" s="3"><v>3</v></c>'), '행별 대인/소인/합계');
+  assert.ok(sheet.includes('<autoFilter ref="A1:H3"/>'));
+  assert.ok(sheet.includes('식권 대인(장)') && sheet.includes('식권 소인(장)') && sheet.includes('식권 합계(장)'));
 });
 
 test('다른 측 정보·전체 합계는 파일 어디에도 들어가지 않는다', () => {
@@ -91,7 +95,7 @@ test('이름의 수식·XML 특수문자는 글자로만 저장된다 (수식 �
   assert.ok(sheet.includes('t="inlineStr"><is><t xml:space="preserve">=SUM(A1)</t>'));
   assert.ok(sheet.includes('&lt;b&gt;&amp;&quot;x&quot;'));
   assert.ok(sheet.includes('>ab<'), '제어문자 제거');
-  assert.equal((sheet.match(/<f>/g) || []).length, 2, '수식은 합계 2개뿐');
+  assert.equal((sheet.match(/<f>/g) || []).length, 4, '수식은 합계 4개(금액·대인·소인·식권합계)뿐');
 });
 
 test('접수시각은 엑셀 날짜 값(로컬 시각 기준)으로 저장되고, 초 단위가 어긋나지 않는다', () => {
@@ -100,7 +104,7 @@ test('접수시각은 엑셀 날짜 값(로컬 시각 기준)으로 저장되고
   const secondsOfDay = Math.floor((serial - Math.floor(serial)) * 86400);
   assert.equal(secondsOfDay, 13 * 3600 + 5 * 60 + 9); // 13:05:09 — 1초 적게 내림되지 않는다
   const sheet = textOf(unzip(build(sample(), 'groom'))['xl/worksheets/sheet1.xml']);
-  assert.ok(sheet.includes(`<c r="F2" s="4"><v>${X.excelSerial(T0)}</v></c>`));
+  assert.ok(sheet.includes(`<c r="H2" s="4"><v>${X.excelSerial(T0)}</v></c>`));
   assert.equal(X.excelSerial('invalid'), null);
 });
 

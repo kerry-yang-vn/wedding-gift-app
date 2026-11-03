@@ -31,7 +31,7 @@
   }
 
   const state = loadState(); // { entries, side } — side가 null이면 아직 측을 고르지 않은 상태
-  const form = { base: 0, taps: [], meals: 0, editingId: null };
+  const form = { base: 0, taps: [], meals: 0, kids: 0, editingId: null }; // meals=식권 대인, kids=식권 소인
   const filter = { query: '' };
   let undoDelete = null;
   let toastTimer = null;
@@ -90,7 +90,8 @@
     const s = L.summarize(ownEntries());
     $('sum-count').textContent = `${s.count}명`;
     $('sum-amount').textContent = L.formatWon(s.amount);
-    $('sum-meals').textContent = `${s.meals}장`;
+    $('sum-meals').textContent = `${s.totalMeals}장`;
+    $('sum-meals-detail').textContent = `대인 ${s.meals} · 소인 ${s.kidMeals}`;
   }
 
   function renderForm() {
@@ -105,6 +106,9 @@
     $('meal-view').textContent = `${form.meals}장`;
     $('meal-minus').disabled = form.meals <= 0;
     $('meal-plus').disabled = form.meals >= L.MAX_MEALS;
+    $('kid-view').textContent = `${form.kids}장`;
+    $('kid-minus').disabled = form.kids <= 0;
+    $('kid-plus').disabled = form.kids >= L.MAX_MEALS;
 
     const editing = form.editingId !== null;
     $('submit').textContent = editing ? '수정 저장' : '등록';
@@ -120,7 +124,7 @@
       el('span', { class: 'no', text: String(no) }),
       el('div', { class: 'nm' }, el('strong', { text: e.name }), el('small', { text: L.formatClock(e.createdAt) })),
       el('span', { class: 'money', text: L.formatWon(e.amount) }),
-      el('span', { class: 'meal', text: `식권 ${e.meals}장` }),
+      el('span', { class: 'meal', text: `식권 대인 ${e.meals} · 소인 ${e.kidMeals || 0}` }),
       el(
         'div',
         { class: 'acts' },
@@ -182,6 +186,7 @@
     form.base = 0;
     form.taps = [];
     form.meals = 0;
+    form.kids = 0;
     form.editingId = null;
     $('name').value = '';
     $('form-msg').textContent = '';
@@ -194,6 +199,7 @@
       side: state.side,
       amount: currentAmount(),
       meals: form.meals,
+      kidMeals: form.kids,
     });
     if (!result.ok) {
       $('form-msg').textContent = result.errors.join(' ');
@@ -207,7 +213,7 @@
       toast(`${v.name}님 수정 완료`);
     } else {
       state.entries = state.entries.concat(L.createEntry(v, newId(), new Date().toISOString()));
-      toast(`${v.name}님 ${L.formatWon(v.amount)} · 식권 ${v.meals}장 등록`);
+      toast(`${v.name}님 ${L.formatWon(v.amount)} · 식권 대인 ${v.meals}·소인 ${v.kidMeals} 등록`);
     }
     saveState();
     resetForm();
@@ -222,6 +228,7 @@
     form.base = e.amount;
     form.taps = [];
     form.meals = e.meals;
+    form.kids = e.kidMeals || 0;
     $('name').value = e.name;
     $('form-msg').textContent = '';
     renderAll();
@@ -464,6 +471,8 @@
   $('clear').addEventListener('click', () => { form.base = 0; form.taps = []; renderForm(); });
   $('meal-minus').addEventListener('click', () => { form.meals = L.clampMeals(form.meals, -1); renderForm(); });
   $('meal-plus').addEventListener('click', () => { form.meals = L.clampMeals(form.meals, 1); renderForm(); });
+  $('kid-minus').addEventListener('click', () => { form.kids = L.clampMeals(form.kids, -1); renderForm(); });
+  $('kid-plus').addEventListener('click', () => { form.kids = L.clampMeals(form.kids, 1); renderForm(); });
   $('submit').addEventListener('click', submit);
   $('cancel-edit').addEventListener('click', () => { resetForm(); renderAll(); });
   $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('name').blur(); });
