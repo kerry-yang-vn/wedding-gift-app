@@ -1,0 +1,14 @@
+{
+  "name": "wedding-gift-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "아이패드용 축의금 접수 PWA",
+  "scripts": {
+    "test": "node --test",
+    "test:ui": "node tests-ui/ui-smoke.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}
