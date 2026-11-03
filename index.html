@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>축의금 접수</title>
-  <meta name="theme-color" content="#1b2a4e">
+  <meta name="theme-color" content="#1B2846">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="축의금 접수">
@@ -14,24 +14,26 @@
   <link rel="icon" type="image/png" href="icon-192.png">
   <style>
     :root {
-      /* 색 역할 (Material 3 방식) — 네이비 기준색에서 파생, 글자 대비 4.5:1 이상 */
-      --surface: #f2f5fb;            /* 앱 배경 */
+      /* 색 역할 — Kerry님이 고른 조합 (기준색에서 면·테두리 색을 파생). 글자 대비 4.5:1 이상 */
+      --surface: #F6F6F8;            /* 앱 배경 */
       --surface-card: #fff;          /* 카드 */
-      --surface-tonal: #eaf0fc;      /* 톤 버튼·보조 면 */
-      --on-surface: #1b2a4e;         /* 본문 글자 */
-      --on-surface-variant: #5a6682; /* 보조 글자 */
-      --outline: #cbd3e6;            /* 테두리 */
-      --outline-soft: #dfe5f2;       /* 구분선 */
-      --primary: #137a51;            /* 핵심 동작(등록·확인) */
+      --surface-tonal: #EDEEF0;      /* 톤 버튼·보조 면 */
+      --on-surface: #1B2846;         /* 본문 글자 */
+      --on-surface-variant: #646D81; /* 보조 글자 */
+      --outline: #D1D4DA;            /* 테두리 */
+      --outline-soft: #E1E3E7;       /* 구분선 */
+      --press: #DDDFE3;              /* 눌렀을 때 */
+      --primary: #2F5FD0;            /* 핵심 동작(등록·확인) */
       --on-primary: #fff;
-      --secondary: #1b2a4e;          /* 보조 강조(앱 바·더하기) */
+      --success: #137a51;            /* 완료 안내 글자 */
+      --secondary: #1B2846;          /* 보조 강조(더하기·설치) */
       --on-secondary: #fff;
-      --tertiary: #f08a3c;           /* 포인트(포커스·선택) */
-      --tertiary-container: #fff0e3;
-      --amount: #fff3cf; --amount-line: #f2c14e; --amount-press: #ffe39a; /* 금액 버튼 */
+      --tertiary: #FF9500;           /* 포인트(포커스·선택) */
+      --tertiary-container: #FFF2E0;
+      --amount: #EDEDED; --amount-line: #C7C7C7; --amount-press: #DFDFDF; /* 금액 버튼 */
       --error: #c0392b; --error-container: #fdecea;
-      --groom: #2f5fd0; --groom-soft: #8fb0ff; --bride: #8a4fd0; --bride-soft: #c9a6f5;
-      --navy: #1b2a4e; --navy-deep: #121c38;
+      --groom: #3B6FD8; --groom-soft: #9DB7EC; --bride: #B0508A; --bride-soft: #D8A8C4;
+      --navy: #1B2846; --navy-deep: #121A2E;
       /* 모양·크기 */
       --r-card: 20px; --r-btn: 14px; --r-field: 14px;
       --touch: 48px;                 /* 최소 터치 높이 */
@@ -54,7 +56,7 @@
     .btn-filled { background: var(--primary); color: var(--on-primary); font-weight: 800; }
     .btn-filled:active { filter: brightness(.9); }
     .btn-tonal { background: var(--surface-tonal); color: var(--on-surface); font-weight: 700; }
-    .btn-tonal:active { background: #dbe5f8; }
+    .btn-tonal:active { background: var(--press); }
     .btn-outlined { border: 2px solid var(--outline); background: var(--surface-card); font-weight: 700; }
     .btn-outlined:active { background: var(--surface-tonal); }
     .btn-text { color: var(--groom); font-weight: 700; padding: 0 12px; }
@@ -68,15 +70,15 @@
       gap: 1px; background: var(--navy-deep); color: #fff; padding-top: env(safe-area-inset-top);
     }
     .stat { background: var(--navy); padding: 10px 16px; display: flex; flex-direction: column; min-width: 0; }
-    .stat .k { font-size: 13px; color: #b9c3dd; }
+    .stat .k { font-size: 13px; color: #c4cade; }
     .stat .k small { font-size: 12px; margin-left: 4px; color: #ffd9b8; white-space: nowrap; }
     .stat strong { font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .stat.side-label { border-top: 4px solid #6b7897; }
+    .stat.side-label { border-top: 4px solid #6f7890; }
     .stat.side-label strong { font-size: 22px; }
     body[data-side=groom] .stat.side-label { border-top-color: var(--groom-soft); }
     body[data-side=bride] .stat.side-label { border-top-color: var(--bride-soft); }
 
-    .install-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; background: #eaf0fe; border-bottom: 1px solid #cddafa; font-size: 15px; }
+    .install-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; background: var(--surface-tonal); border-bottom: 1px solid var(--outline-soft); font-size: 15px; }
     .install-bar[hidden], .overlay[hidden] { display: none; }
     .install-bar span { flex: 1 1 240px; }
     .install-btn { padding: 0 18px; background: var(--secondary); color: var(--on-secondary); font-weight: 800; }
@@ -116,13 +118,13 @@
     .meal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .stepper-name { display: block; margin-bottom: 4px; font-weight: 800; }
     .stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 6px; align-items: center; }
-    .stepper button { min-height: 56px; font-size: 30px; font-weight: 700; background: var(--surface-tonal); border: 2px solid #cfdaf1; }
+    .stepper button { min-height: 56px; font-size: 30px; font-weight: 700; background: var(--surface-tonal); border: 2px solid var(--outline); }
     .stepper output { text-align: center; font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     /* 등록 줄: 입력 카드가 길어도 항상 화면 아래에 고정되어 보인다 */
     .submit-bar { position: sticky; bottom: 0; margin: 0 -18px; padding: 10px 18px 18px; background: var(--surface-card); border-radius: 0 0 var(--r-card) var(--r-card); box-shadow: 0 -8px 10px -8px rgba(27,42,78,.18); }
     .msg { min-height: 1.4em; margin: 0 0 6px; color: var(--error); font-weight: 700; }
-    .msg.ok { color: var(--primary); }
+    .msg.ok { color: var(--success); }
     .msg:empty { display: none; }
     .primary { width: 100%; min-height: 68px; font-size: 22px; }
 
@@ -154,7 +156,7 @@
     }
     .toast:not(:has(button)) { padding-right: 18px; }
     .toast[hidden] { display: none; }
-    .toast-btn { padding: 0 14px; color: #ffb347; font-weight: 800; }
+    .toast-btn { padding: 0 14px; color: #FFB347; font-weight: 800; }
 
     .overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.45); overflow-y: auto; }
     .sheet { width: 100%; max-width: 460px; background: var(--surface-card); border-radius: 28px; padding: 24px; margin: auto; }
@@ -173,7 +175,7 @@
     #export-dialog .row .btn-outlined { min-height: 56px; font-size: 17px; }
 
     /* 첫 실행 시 이 기기의 측 선택 */
-    #side-setup { z-index: 40; background: rgba(18, 28, 56, .94); }
+    #side-setup { z-index: 40; background: rgba(18, 26, 46, .94); }
     .setup-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .setup-btn { min-height: 96px; font-size: 24px; font-weight: 800; color: #fff; }
     .setup-btn.groom { background: var(--groom); }

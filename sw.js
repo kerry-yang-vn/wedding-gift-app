@@ -1,6 +1,6 @@
 /* 오프라인 캐시: 앱 파일을 먼저 캐시에서 불러오고, 백그라운드에서 최신본으로 갱신한다.
    앱 파일을 수정해 배포할 때는 CACHE 버전을 올려 주세요. */
-const CACHE = 'gift-v8';
+const CACHE = 'gift-v9';
 const ASSETS = [
   './',
   './index.html',
