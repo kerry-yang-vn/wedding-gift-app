@@ -202,3 +202,28 @@ test('날짜 포맷', () => {
   assert.equal(L.formatDateStamp(new Date(2026, 10, 4)), '20261104');
   assert.equal(L.formatDateTime('invalid'), '');
 });
+
+/* ---------- 앱 설치 안내 ---------- */
+
+test('detectInstallMode: 이미 설치되어 실행 중이면 installed', () => {
+  assert.equal(L.detectInstallMode({ standalone: true, userAgent: 'iPad' }), 'installed');
+  assert.equal(L.detectInstallMode({ displayModeStandalone: true }), 'installed');
+});
+
+test('detectInstallMode: 아이패드/아이폰은 ios (일반 UA와 iPadOS 데스크톱 UA 모두)', () => {
+  assert.equal(L.detectInstallMode({ userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)' }), 'ios');
+  assert.equal(L.detectInstallMode({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' }), 'ios');
+  assert.equal(
+    L.detectInstallMode({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', platform: 'MacIntel', maxTouchPoints: 5 }),
+    'ios'
+  );
+});
+
+test('detectInstallMode: 맥 데스크톱/안드로이드/값 없음은 other', () => {
+  assert.equal(
+    L.detectInstallMode({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', platform: 'MacIntel', maxTouchPoints: 0 }),
+    'other'
+  );
+  assert.equal(L.detectInstallMode({ userAgent: 'Mozilla/5.0 (Linux; Android 14)' }), 'other');
+  assert.equal(L.detectInstallMode(), 'other');
+});

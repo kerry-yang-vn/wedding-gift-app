@@ -316,9 +316,71 @@
   $('export').addEventListener('click', exportCsv);
   $('reset-all').addEventListener('click', resetAll);
 
+  /* ---------- 앱 설치 안내 ---------- */
+
+  let deferredPrompt = null; // 크롬/안드로이드/PC: 브라우저가 주는 설치 프롬프트
+  let installBarDismissed = false;
+
+  function renderInstallBar() {
+    const mode = L.detectInstallMode({
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      maxTouchPoints: navigator.maxTouchPoints,
+      standalone: navigator.standalone === true,
+      displayModeStandalone: !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches),
+    });
+    let show = false;
+    if (mode !== 'installed' && !installBarDismissed) {
+      if (deferredPrompt) {
+        show = true;
+        $('install-btn').textContent = '앱 설치';
+      } else if (mode === 'ios') {
+        // iOS Safari는 설치 프롬프트 API가 없어 안내 화면으로 대신한다
+        show = true;
+        $('install-btn').textContent = '설치 방법 보기';
+      }
+    }
+    $('install-bar').hidden = !show;
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    renderInstallBar();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    renderInstallBar();
+    toast('앱이 설치되었습니다');
+  });
+
+  $('install-btn').addEventListener('click', async () => {
+    if (deferredPrompt) {
+      const promptEvent = deferredPrompt;
+      deferredPrompt = null;
+      promptEvent.prompt();
+      try { await promptEvent.userChoice; } catch (e) { /* 무시 */ }
+      renderInstallBar();
+    } else {
+      $('install-guide').hidden = false;
+    }
+  });
+
+  $('install-dismiss').addEventListener('click', () => {
+    installBarDismissed = true;
+    renderInstallBar();
+  });
+
+  $('guide-close').addEventListener('click', () => { $('install-guide').hidden = true; });
+  $('install-guide').addEventListener('click', (e) => {
+    if (e.target === $('install-guide')) $('install-guide').hidden = true; // 바깥 영역 탭하면 닫기
+  });
+
   /* ---------- 시작 ---------- */
 
   renderAll();
+  renderInstallBar();
   if (!storageOk) $('storage-warning').hidden = false;
 
   // 브라우저가 저장소를 임의로 비우지 않도록 요청 (실패해도 무방)

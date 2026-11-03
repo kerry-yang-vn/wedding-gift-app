@@ -203,6 +203,18 @@
     return { entries, lastSide: hasSide(data.lastSide) ? data.lastSide : 'groom' };
   }
 
+  /* ---------- 앱 설치(PWA) 안내 ---------- */
+
+  // 반환값: 'installed'(이미 설치돼 실행 중) | 'ios'(홈 화면에 추가 안내 필요) | 'other'
+  function detectInstallMode(env) {
+    const e = env || {};
+    if (e.standalone === true || e.displayModeStandalone === true) return 'installed';
+    const ua = String(e.userAgent || '');
+    // iPadOS의 Safari는 Mac처럼 보고되므로 터치 지원 여부로 구분한다
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (e.platform === 'MacIntel' && Number(e.maxTouchPoints) > 1);
+    return isIOS ? 'ios' : 'other';
+  }
+
   return {
     AMOUNT_BUTTONS,
     SIDES,
@@ -227,5 +239,6 @@
     toCSV,
     serialize,
     parseStored,
+    detectInstallMode,
   };
 });

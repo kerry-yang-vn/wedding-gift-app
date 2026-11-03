@@ -14,7 +14,7 @@ function check(label, cond, extra) {
   else { failed++; console.log('  ✗', label, extra !== undefined ? `(실제: ${JSON.stringify(extra)})` : ''); }
 }
 
-function boot(seedStorage) {
+function boot(seedStorage, env) {
   const dom = new JSDOM(html.replace(/<script src[^>]*><\/script>/g, ''), {
     url: 'http://localhost/',
     runScripts: 'outside-only',
@@ -22,6 +22,9 @@ function boot(seedStorage) {
     beforeParse(win) {
       if (seedStorage) win.localStorage.setItem('wedding-gift-v1', seedStorage);
       win.HTMLElement.prototype.scrollIntoView = () => {};
+      for (const [k, v] of Object.entries(env || {})) {
+        Object.defineProperty(win.navigator, k, { value: v, configurable: true });
+      }
     },
   });
   dom.window.eval(logicSrc);
@@ -172,6 +175,44 @@ const click = (w, id) => w.document.getElementById(id).click();
   click(w, 'reset-all');
   check('"삭제" 입력 시 전체 삭제', text(w, 'sum-count') === '0명' && qa(w, '.item').length === 0);
   check('삭제 내용이 저장소에도 반영', JSON.parse(w.localStorage.getItem('wedding-gift-v1')).entries.length === 0);
+
+  console.log('[14] 앱 설치 안내');
+  const wait = () => new Promise((r) => setTimeout(r, 20));
+  const bar = (win) => win.document.getElementById('install-bar');
+  const IPAD_UA = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
+
+  const wPlain = boot().window;
+  check('일반 브라우저(설치 수단 없음)에서는 안내 바 숨김', bar(wPlain).hidden === true);
+
+  const wChrome = boot().window;
+  let prompted = false;
+  const ev = new wChrome.Event('beforeinstallprompt', { cancelable: true });
+  ev.prompt = () => { prompted = true; };
+  ev.userChoice = Promise.resolve({ outcome: 'accepted' });
+  wChrome.dispatchEvent(ev);
+  check('크롬: 설치 프롬프트가 오면 "앱 설치" 버튼 표시', bar(wChrome).hidden === false && text(wChrome, 'install-btn') === '앱 설치', text(wChrome, 'install-btn'));
+  click(wChrome, 'install-btn');
+  await wait();
+  check('크롬: 버튼 누르면 브라우저 설치 창 호출, 안내 바 닫힘', prompted === true && bar(wChrome).hidden === true);
+
+  const wIpad = boot(null, { userAgent: IPAD_UA }).window;
+  check('아이패드: "설치 방법 보기" 버튼 표시', bar(wIpad).hidden === false && text(wIpad, 'install-btn') === '설치 방법 보기', text(wIpad, 'install-btn'));
+  check('아이패드: 가이드는 처음엔 닫혀 있음', wIpad.document.getElementById('install-guide').hidden === true);
+  click(wIpad, 'install-btn');
+  check('아이패드: 버튼 → 홈 화면에 추가 가이드 표시', wIpad.document.getElementById('install-guide').hidden === false && text(wIpad, 'guide-title').includes('홈 화면에 추가'));
+  click(wIpad, 'guide-close');
+  check('아이패드: 확인 → 가이드 닫힘', wIpad.document.getElementById('install-guide').hidden === true);
+  click(wIpad, 'install-dismiss');
+  check('아이패드: 닫기 → 안내 바 숨김', bar(wIpad).hidden === true);
+
+  const wIpadOS = boot(null, { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', platform: 'MacIntel', maxTouchPoints: 5 }).window;
+  check('iPadOS(맥으로 보고되는 UA)도 안내 표시', bar(wIpadOS).hidden === false);
+
+  const wMac = boot(null, { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', platform: 'MacIntel', maxTouchPoints: 0 }).window;
+  check('맥 데스크톱 Safari는 안내 없음', bar(wMac).hidden === true);
+
+  const wInstalled = boot(null, { userAgent: IPAD_UA, standalone: true }).window;
+  check('이미 홈 화면 앱으로 실행 중이면 안내 숨김', bar(wInstalled).hidden === true);
 
   console.log(`\n결과: ${passed} 통과 / ${failed} 실패`);
   process.exit(failed ? 1 : 0);
