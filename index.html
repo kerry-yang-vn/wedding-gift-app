@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>축의금 접수</title>
-  <meta name="theme-color" content="#1d2330">
+  <meta name="theme-color" content="#1b2a4e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="축의금 접수">
@@ -14,9 +14,13 @@
   <link rel="icon" type="image/png" href="icon-192.png">
   <style>
     :root {
-      --bg: #f4f1ea; --card: #fff; --ink: #1d2330; --mute: #6b7280; --line: #e3ded3;
-      --groom: #2c5aa0; --bride: #be3f63;
-      --ok: #1f6f4a; --danger: #b42318; --radius: 16px;
+      /* 색 조합: 네이비 바탕 + 파스텔 보조색 + 주황 포인트 (대비 4.5:1 이상 확인) */
+      --bg: #f2f5fb; --card: #fff; --ink: #1b2a4e; --mute: #5f6b85; --line: #dfe5f2;
+      --navy: #1b2a4e; --navy-deep: #121c38;
+      --groom: #2f5fd0; --groom-soft: #8fb0ff; --bride: #8a4fd0; --bride-soft: #c9a6f5;
+      --ok: #137a51; --danger: #c0392b;
+      --accent: #f08a3c; --accent-soft: #fff0e3; --sun: #fff3cf; --sun-line: #f2c14e;
+      --radius: 16px;
     }
     * { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; color-scheme: light; }
@@ -29,7 +33,7 @@
     }
     button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; border-radius: 12px; }
     button:disabled { opacity: .35; cursor: default; }
-    button:focus-visible, input:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     h2 { margin: 0; font-size: 19px; }
 
     .warn { background: #fff3cd; color: #664d03; padding: 10px 16px; font-size: 15px; }
@@ -37,20 +41,20 @@
     /* 상단 합계 (이 기기에 고정된 측의 내용만 표시) */
     .summary {
       position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1.1fr repeat(3, 1fr);
-      gap: 1px; background: #0f131c; color: #fff; padding-top: env(safe-area-inset-top);
+      gap: 1px; background: var(--navy-deep); color: #fff; padding-top: env(safe-area-inset-top);
     }
-    .stat { background: var(--ink); padding: 10px 16px; display: flex; flex-direction: column; min-width: 0; }
-    .stat .k { font-size: 13px; opacity: .7; }
+    .stat { background: var(--navy); padding: 10px 16px; display: flex; flex-direction: column; min-width: 0; }
+    .stat .k { font-size: 13px; color: #b9c3dd; }
     .stat strong { font-size: 26px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .stat.side-label { border-top: 4px solid #6b7280; }
+    .stat.side-label { border-top: 4px solid #6b7897; }
     .stat.side-label strong { font-size: 22px; }
-    body[data-side=groom] .stat.side-label { border-top-color: #6f9be0; }
-    body[data-side=bride] .stat.side-label { border-top-color: #e68aa4; }
+    body[data-side=groom] .stat.side-label { border-top-color: var(--groom-soft); }
+    body[data-side=bride] .stat.side-label { border-top-color: var(--bride-soft); }
 
-    .install-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; background: #fff8e6; border-bottom: 1px solid #f0dca6; font-size: 15px; }
+    .install-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; background: #eaf0fe; border-bottom: 1px solid #cddafa; font-size: 15px; }
     .install-bar[hidden], .overlay[hidden] { display: none; }
     .install-bar span { flex: 1 1 240px; }
-    .install-btn { min-height: 44px; padding: 0 16px; background: var(--ink); color: #fff; font-weight: 800; }
+    .install-btn { min-height: 44px; padding: 0 16px; background: var(--navy); color: #fff; font-weight: 800; }
     .install-x { min-height: 44px; padding: 0 12px; color: var(--mute); font-weight: 700; }
 
     .layout {
@@ -60,11 +64,11 @@
     .card { background: var(--card); border-radius: var(--radius); padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
     .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     #form-card { position: sticky; top: 100px; max-height: calc(100dvh - 116px); overflow-y: auto; }
-    #form-card.editing { outline: 3px solid #f59e0b; }
+    #form-card.editing { outline: 3px solid var(--accent); }
 
     .field { display: block; margin-bottom: 14px; }
     .field > span, .label { display: block; font-size: 14px; color: var(--mute); margin-bottom: 6px; font-weight: 600; }
-    input[type=text], input[type=search] {
+    input[type=text], input[type=search], input[type=password] {
       width: 100%; min-height: 56px; padding: 0 14px; font-size: 20px; border: 2px solid var(--line);
       border-radius: 12px; background: #fff; color: inherit;
     }
@@ -73,13 +77,13 @@
     #amount-view { display: block; font-size: 36px; line-height: 1.2; font-variant-numeric: tabular-nums; }
     .formula { color: var(--mute); font-size: 15px; min-height: 1.4em; }
     .amount-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
-    .amt { min-height: 68px; font-size: 24px; font-weight: 800; background: #fff7e0; border: 2px solid #e8c66a; }
-    .amt:active { transform: scale(.97); background: #ffeeb8; }
+    .amt { min-height: 68px; font-size: 24px; font-weight: 800; background: var(--sun); border: 2px solid var(--sun-line); }
+    .amt:active { transform: scale(.97); background: #ffe39a; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .ghost { min-height: 48px; border: 2px solid var(--line); background: #fff; font-weight: 600; }
 
     .stepper { display: grid; grid-template-columns: 76px 1fr 76px; gap: 8px; align-items: center; }
-    .stepper button { min-height: 64px; font-size: 32px; font-weight: 700; background: #eef2f7; border: 2px solid #d5dce6; }
+    .stepper button { min-height: 64px; font-size: 32px; font-weight: 700; background: #eaf0fc; border: 2px solid #cfdaf1; }
     .stepper output { text-align: center; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
     .msg { min-height: 1.4em; margin: 0 0 8px; color: var(--danger); font-weight: 600; }
@@ -96,7 +100,7 @@
 
     .list { list-style: none; margin: 0; padding: 0; }
     .item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
-    .item.editing { background: #fff8e6; }
+    .item.editing { background: var(--accent-soft); }
     .no { width: 36px; color: var(--mute); font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
     .nm { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; }
     .nm strong { overflow-wrap: anywhere; }
@@ -111,19 +115,31 @@
     .toast {
       position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
       z-index: 20; display: flex; align-items: center; gap: 14px; max-width: 92vw;
-      background: #111827; color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600;
+      background: var(--navy-deep); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600;
       box-shadow: 0 6px 24px rgba(0,0,0,.25);
     }
     .toast[hidden] { display: none; }
-    .toast-btn { min-height: 40px; padding: 0 12px; color: #ffd166; font-weight: 800; }
+    .toast-btn { min-height: 40px; padding: 0 12px; color: #ffb347; font-weight: 800; }
 
     .overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.45); }
     .sheet { width: 100%; max-width: 460px; background: #fff; border-radius: var(--radius); padding: 22px; }
     .sheet ol { padding-left: 22px; line-height: 1.9; margin: 12px 0; }
     .sheet .note { color: var(--mute); font-size: 14px; margin: 8px 0 16px; }
 
+    /* 엑셀 내보내기 대화상자 */
+    .choices { display: grid; gap: 8px; margin-bottom: 14px; }
+    .opt { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; }
+    .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+    .opt input, .check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); }
+    .opt span { display: flex; flex-direction: column; }
+    .opt small { color: var(--mute); font-size: 13px; }
+    .check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 4px; font-weight: 600; }
+    .msg.ok { color: var(--ok); }
+    #export-dialog .row .primary { min-height: 56px; font-size: 19px; }
+    #export-dialog .row .ghost { min-height: 56px; font-size: 17px; }
+
     /* 첫 실행 시 이 기기의 측 선택 */
-    #side-setup { z-index: 40; background: rgba(15, 19, 28, .94); }
+    #side-setup { z-index: 40; background: rgba(18, 28, 56, .94); }
     .setup-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .setup-btn { min-height: 88px; font-size: 24px; font-weight: 800; color: #fff; }
     .setup-btn.groom { background: var(--groom); }
@@ -229,8 +245,8 @@
 
   <div id="side-setup" class="overlay" role="dialog" aria-modal="true" aria-labelledby="setup-title" hidden>
     <div class="sheet">
-      <h2 id="setup-title">이 아이패드는 어느 쪽 접수대인가요?</h2>
-      <p class="note">선택한 쪽의 접수 내역·합계·CSV만 이 기기에 표시되고, 상대측 정보는 볼 수 없습니다. 나중에 바꾸려면 접수 내역을 모두 지운 뒤 <b>측 변경</b>을 누르세요.</p>
+      <h2 id="setup-title">이 기기는 어느 쪽 접수대인가요?</h2>
+      <p class="note">선택한 쪽의 접수 내역·합계·내보내기 파일에는 이 기기에서 고른 측의 정보만 담기고, 상대측 정보는 볼 수 없습니다. 나중에 바꾸려면 접수 내역을 모두 지운 뒤 <b>측 변경</b>을 누르세요.</p>
       <div class="setup-btns">
         <button type="button" class="setup-btn groom" data-setup="groom">신랑측</button>
         <button type="button" class="setup-btn bride" data-setup="bride">신부측</button>
@@ -238,8 +254,42 @@
     </div>
   </div>
 
+  <div id="export-dialog" class="overlay" role="dialog" aria-modal="true" aria-labelledby="export-title" hidden>
+    <form class="sheet" id="export-form" autocomplete="off" novalidate>
+      <h2 id="export-title">엑셀로 내보내기</h2>
+      <p class="note" id="export-scope"></p>
+      <div class="choices" role="radiogroup" aria-label="파일 보호 방식">
+        <label class="opt">
+          <input type="radio" name="export-mode" value="plain" checked>
+          <span><b>비밀번호 없이</b><small>누구나 바로 열 수 있는 파일</small></span>
+        </label>
+        <label class="opt">
+          <input type="radio" name="export-mode" value="password" id="export-mode-pw">
+          <span><b>비밀번호 걸기</b><small>엑셀에서 열 때 비밀번호를 입력해야 열립니다</small></span>
+        </label>
+      </div>
+      <p class="note" id="export-nocrypto" hidden>이 환경에서는 비밀번호 기능을 쓸 수 없습니다. (보안 연결(https)로 접속해야 합니다)</p>
+      <div id="export-pw-box" hidden>
+        <label class="field"><span>비밀번호 (4자 이상)</span>
+          <input type="password" id="export-pw" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
+        </label>
+        <label class="field"><span>비밀번호 확인</span>
+          <input type="password" id="export-pw2" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </label>
+        <label class="check"><input type="checkbox" id="export-show"> 비밀번호 보기</label>
+        <p class="note">비밀번호를 잊으면 파일을 열 수 없고 복구도 불가능합니다. 따로 적어 두세요. 컴퓨터에서 입력하기 쉬운 영문·숫자를 권장합니다. (CSV 파일에는 비밀번호를 걸 수 없습니다)</p>
+      </div>
+      <p class="msg" id="export-msg" role="alert" aria-live="polite"></p>
+      <div class="row">
+        <button type="button" class="ghost" id="export-cancel">취소</button>
+        <button type="submit" class="primary" id="export-go">내보내기</button>
+      </div>
+    </form>
+  </div>
+
   <script src="logic.js"></script>
   <script src="xlsx.js"></script>
+  <script src="officecrypto.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

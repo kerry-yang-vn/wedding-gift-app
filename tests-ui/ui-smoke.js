@@ -6,6 +6,7 @@ const APP = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
 const logicSrc = fs.readFileSync(path.join(APP, 'logic.js'), 'utf8');
 const xlsxSrc = fs.readFileSync(path.join(APP, 'xlsx.js'), 'utf8');
+const cryptoSrc = fs.readFileSync(path.join(APP, 'officecrypto.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(APP, 'app.js'), 'utf8');
 
 let passed = 0;
@@ -24,6 +25,8 @@ function boot(seedStorage, env) {
       if (seedStorage) win.localStorage.setItem('wedding-gift-v1', seedStorage);
       win.HTMLElement.prototype.scrollIntoView = () => {};
       win.TextEncoder = TextEncoder; // jsdom에는 없지만 실제 브라우저에는 있다
+      if (!(env && env.__noCrypto)) Object.defineProperty(win, 'crypto', { value: require('node:crypto').webcrypto, configurable: true });
+      if (env) { env = { ...env }; delete env.__noCrypto; }
       for (const [k, v] of Object.entries(env || {})) {
         Object.defineProperty(win.navigator, k, { value: v, configurable: true });
       }
@@ -31,6 +34,7 @@ function boot(seedStorage, env) {
   });
   dom.window.eval(logicSrc);
   dom.window.eval(xlsxSrc);
+  dom.window.eval(cryptoSrc);
   dom.window.eval(appSrc);
   return dom;
 }
@@ -46,6 +50,7 @@ const stored = (w) => JSON.parse(w.localStorage.getItem('wedding-gift-v1'));
 const isHidden = (w, id) => w.document.getElementById(id).hidden === true;
 // 화면에 노출되는 영역(합계/입력/내역)의 텍스트 — 측 선택 오버레이는 제외
 const visibleText = (w) => ['.summary', '#form-card', '#list-card'].map((s) => q(w, s).textContent).join(' ');
+const exportModeNow = (w) => w.document.querySelector('input[name="export-mode"]:checked').value;
 const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meals, createdAt: new Date().toISOString() });
 
 (async () => {
@@ -186,12 +191,68 @@ const entry = (id, side, name, amount, meals) => ({ id, side, name, amount, meal
     if (tag === 'a') n.click = () => { downloadName = n.getAttribute('download'); };
     return n;
   };
+  const submitExport = () => q(w, '#export-form').dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true }));
+  const setMode = (v) => { const r = q(w, `input[name="export-mode"][value="${v}"]`); r.checked = true; r.dispatchEvent(new w.Event('change', { bubbles: true })); };
+  const setPw = (a, b) => { w.document.getElementById('export-pw').value = a; w.document.getElementById('export-pw2').value = b; };
+
   click(w, 'export');
+  check('엑셀 버튼 → 내보내기 대화상자가 열림 (아직 파일 없음)', !isHidden(w, 'export-dialog') === true && downloadName === null);
+  check('대화상자에 측·건수 안내 (신랑측 3건)', text(w, 'export-scope').includes('신랑측') && text(w, 'export-scope').includes('3건'), text(w, 'export-scope'));
+  check('기본 선택은 "비밀번호 없이", 비밀번호 입력칸은 숨김', exportModeNow(w) === 'plain' && isHidden(w, 'export-pw-box'));
+  check('"비밀번호 걸기" 선택 시 입력칸 표시, 버튼 문구 변경', (setMode('password'), !isHidden(w, 'export-pw-box') && text(w, 'export-go') === '암호화하여 만들기'));
+  setMode('plain');
+  check('"비밀번호 없이" 로 되돌리면 입력칸 숨김, 버튼 "내보내기"', isHidden(w, 'export-pw-box') && text(w, 'export-go') === '내보내기');
+  click(w, 'export-cancel');
+  check('취소 → 닫힘, 파일 없음', isHidden(w, 'export-dialog') && downloadName === null);
+
+  click(w, 'export');
+  submitExport();
   await sleep(150);
-  check('엑셀: 파일명 축의금_신랑측_YYYYMMDD.xlsx', /^축의금_신랑측_\d{8}\.xlsx$/.test(downloadName || ''), downloadName);
+  check('엑셀(비밀번호 없이): 대화상자 닫히고 파일명 축의금_신랑측_YYYYMMDD.xlsx', isHidden(w, 'export-dialog') && /^축의금_신랑측_\d{8}\.xlsx$/.test(downloadName || ''), downloadName);
   check('엑셀: 올바른 .xlsx(ZIP, "PK" 시그니처) 파일이 만들어짐', !!blobBytes && blobBytes[0] === 0x50 && blobBytes[1] === 0x4b && blobBytes.length > 500, blobBytes && blobBytes.length);
   check('엑셀 버튼을 눌러도 CSV 텍스트가 아닌 바이너리', !!blobText && !blobText.includes('번호,구분,이름'));
   blobBytes = null; blobText = null; downloadName = null;
+
+  console.log('[13-2] 엑셀 비밀번호 걸기');
+  click(w, 'export');
+  setMode('password');
+  setPw('abc', 'abc');
+  submitExport();
+  check('4자 미만 → 오류 안내, 파일 없음', text(w, 'export-msg').includes('4자 이상') && downloadName === null && !isHidden(w, 'export-dialog'), text(w, 'export-msg'));
+  setPw('pass1234', 'pass12345');
+  submitExport();
+  check('확인 입력이 다르면 → 오류 안내', text(w, 'export-msg').includes('일치하지 않습니다') && downloadName === null, text(w, 'export-msg'));
+  q(w, '#export-show').checked = true; q(w, '#export-show').dispatchEvent(new w.Event('change', { bubbles: true }));
+  check('"비밀번호 보기" → 입력칸이 text로 전환', q(w, '#export-pw').type === 'text' && q(w, '#export-pw2').type === 'text');
+  q(w, '#export-show').checked = false; q(w, '#export-show').dispatchEvent(new w.Event('change', { bubbles: true }));
+  check('보기 해제 → 다시 password', q(w, '#export-pw').type === 'password');
+  setPw('pass1234', 'pass1234');
+  submitExport();
+  check('암호화 시작 → 진행 중 표시, 버튼 잠김', text(w, 'export-msg').includes('암호화 중') && w.document.getElementById('export-go').disabled === true && w.document.getElementById('export-cancel').disabled === true, text(w, 'export-msg'));
+  click(w, 'export-cancel');
+  check('암호화 중에는 취소로 닫히지 않는다', !isHidden(w, 'export-dialog'));
+  for (let i = 0; i < 100 && text(w, 'export-go') !== '저장·공유하기'; i++) await sleep(100);
+  check('암호화 완료 → 버튼이 "저장·공유하기"로 바뀌고, 아직 자동 저장되지 않는다', text(w, 'export-go') === '저장·공유하기' && downloadName === null && text(w, 'export-msg').includes('끝났습니다'), [text(w, 'export-go'), text(w, 'export-msg')]);
+  check('완료 후 입력칸은 잠김(비밀번호 변경 불가)', w.document.getElementById('export-pw').disabled === true);
+  submitExport();
+  await sleep(200);
+  check('저장·공유하기 → 대화상자 닫히고 .xlsx 파일 전달', isHidden(w, 'export-dialog') && /^축의금_신랑측_\d{8}\.xlsx$/.test(downloadName || ''), downloadName);
+  check('전달된 파일은 암호화 컨테이너(CFB 시그니처 D0CF11E0), ZIP("PK")이 아니다', !!blobBytes && blobBytes[0] === 0xd0 && blobBytes[1] === 0xcf && blobBytes[2] === 0x11 && blobBytes[3] === 0xe0, blobBytes && [...blobBytes.slice(0, 4)]);
+  check('파일 안에 이름·측 문구가 평문으로 남지 않는다', !!blobText && !/홍길동|신랑측|이철수/.test(blobText));
+  check('닫힌 뒤 비밀번호 입력값이 비워진다', w.document.getElementById('export-pw').value === '' && w.document.getElementById('export-pw2').value === '');
+  blobBytes = null; blobText = null; downloadName = null;
+  click(w, 'export');
+  check('다시 열면 초기 상태(비밀번호 없이, 입력칸 숨김, 활성)', exportModeNow(w) === 'plain' && isHidden(w, 'export-pw-box') && w.document.getElementById('export-pw').disabled === false && text(w, 'export-go') === '내보내기');
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  check('Esc 키로 닫힘', isHidden(w, 'export-dialog'));
+  w.document.getElementById('export-dialog').hidden = true;
+
+  console.log('[13-3] WebCrypto 없는 환경 (http 등)');
+  const wNc = boot(stored(w) && JSON.stringify(stored(w)), { __noCrypto: true }).window;
+  click(wNc, 'export');
+  check('비밀번호 옵션 비활성 + 안내 문구, 일반 내보내기는 가능', wNc.document.getElementById('export-mode-pw').disabled === true && !isHidden(wNc, 'export-nocrypto'));
+  click(wNc, 'export-cancel');
+  console.log('[13-4] CSV');
   click(w, 'export-csv');
   await sleep(150);
   check('CSV: 파일명 축의금_신랑측_YYYYMMDD.csv', /^축의금_신랑측_\d{8}\.csv$/.test(downloadName || ''), downloadName);

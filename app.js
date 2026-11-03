@@ -270,7 +270,7 @@
 
   /* ---------- 내보내기 (엑셀 / CSV — 모두 이 기기의 측 데이터만) ---------- */
 
-  // 아이패드: 공유 시트(파일에 저장 / AirDrop / 메일)를 먼저 시도하고, 안 되면 일반 다운로드로 대체
+  // 태블릿(iPad 등): 공유 시트(파일에 저장 / AirDrop / 메일)를 먼저 시도하고, 안 되면 일반 다운로드로 대체
   async function deliverFile(parts, filename, mime) {
     try {
       const file = new File(parts, filename, { type: mime });
@@ -301,10 +301,104 @@
 
   const fileStem = () => `축의금_${L.SIDES[state.side]}_${L.formatDateStamp(new Date())}`;
 
-  async function exportExcel() {
+  /* ---------- 엑셀 내보내기 대화상자: 비밀번호 없이 / 비밀번호 걸기 ---------- */
+
+  // 암호화에 1초 안팎이 걸리므로, 끝난 뒤 사용자가 "저장·공유하기"를 다시 눌러 전달한다.
+  // (공유 시트는 사용자가 방금 누른 직후에만 열 수 있어서, 대기 후 자동으로 열면 막힐 수 있음)
+  const exp = { bytes: null, busy: false };
+
+  const cryptoReady = () => !!(window.GiftCrypto && window.crypto && window.crypto.subtle);
+  const exportMode = () => document.querySelector('input[name="export-mode"]:checked').value;
+
+  function showExportMsg(text, ok) {
+    const m = $('export-msg');
+    m.textContent = text || '';
+    m.classList.toggle('ok', !!ok);
+  }
+
+  function syncExportDialog() {
+    const usePw = exportMode() === 'password';
+    const locked = exp.busy || !!exp.bytes;
+    $('export-pw-box').hidden = !usePw;
+    document.querySelectorAll('#export-dialog input').forEach((i) => { i.disabled = locked && i.id !== 'export-show'; });
+    if (!cryptoReady()) $('export-mode-pw').disabled = true;
+    $('export-go').disabled = exp.busy;
+    $('export-cancel').disabled = exp.busy;
+    $('export-go').textContent = exp.bytes ? '저장·공유하기' : usePw ? '암호화하여 만들기' : '내보내기';
+  }
+
+  function openExportDialog() {
+    exp.bytes = null;
+    exp.busy = false;
+    document.querySelector('input[name="export-mode"][value="plain"]').checked = true;
+    ['export-pw', 'export-pw2'].forEach((id) => { $(id).value = ''; $(id).type = 'password'; });
+    $('export-show').checked = false;
+    $('export-nocrypto').hidden = cryptoReady();
+    $('export-scope').textContent = `${L.SIDES[state.side]} 접수 ${ownEntries().length}건만 담깁니다.`;
+    showExportMsg('');
+    syncExportDialog();
+    $('export-dialog').hidden = false;
+    $('export-go').focus();
+  }
+
+  function closeExportDialog() {
+    if (exp.busy) return;
+    exp.bytes = null;
+    ['export-pw', 'export-pw2'].forEach((id) => { $(id).value = ''; }); // 비밀번호를 화면에 남기지 않음
+    $('export-dialog').hidden = true;
+  }
+
+  async function submitExport(e) {
+    e.preventDefault();
+    if (exp.busy) return;
+
+    if (exp.bytes) { // 암호화된 파일 전달
+      const bytes = exp.bytes;
+      closeExportDialog();
+      await deliverFile([bytes], `${fileStem()}.xlsx`, window.GiftXlsx.MIME);
+      return;
+    }
+
+    if (!state.side || !ownEntries().length) {
+      closeExportDialog();
+      toast('내보낼 내역이 없습니다');
+      return;
+    }
+    const plain = window.GiftXlsx.build(L.toSheetModel(state.entries, state.side), { now: new Date() });
+
+    if (exportMode() === 'plain') {
+      closeExportDialog();
+      await deliverFile([plain], `${fileStem()}.xlsx`, window.GiftXlsx.MIME);
+      return;
+    }
+
+    const pw = $('export-pw').value;
+    const check = window.GiftCrypto.validatePassword(pw);
+    if (!check.ok) return showExportMsg(check.error);
+    if (pw !== $('export-pw2').value) return showExportMsg('비밀번호 확인이 일치하지 않습니다.');
+
+    exp.busy = true;
+    syncExportDialog();
+    showExportMsg('암호화 중… 0%', true);
+    try {
+      exp.bytes = await window.GiftCrypto.encryptXlsx(plain, pw, {
+        onProgress: (p) => showExportMsg(`암호화 중… ${Math.round(p * 100)}%`, true),
+      });
+    } catch (err) {
+      exp.bytes = null;
+      exp.busy = false;
+      syncExportDialog();
+      return showExportMsg((err && err.message) || '암호화에 실패했습니다. 비밀번호 없이 내보내거나 CSV를 이용해 주세요.');
+    }
+    exp.busy = false;
+    syncExportDialog();
+    showExportMsg('암호화가 끝났습니다. 아래 버튼을 눌러 저장하세요.', true);
+    $('export-go').focus();
+  }
+
+  function exportExcel() {
     if (!exportable()) return;
-    const bytes = window.GiftXlsx.build(L.toSheetModel(state.entries, state.side), { now: new Date() });
-    await deliverFile([bytes], `${fileStem()}.xlsx`, window.GiftXlsx.MIME);
+    openExportDialog();
   }
 
   async function exportCsv() {
@@ -353,6 +447,14 @@
 
   $('export').addEventListener('click', exportExcel);
   $('export-csv').addEventListener('click', exportCsv);
+  $('export-form').addEventListener('submit', submitExport);
+  $('export-cancel').addEventListener('click', closeExportDialog);
+  document.querySelectorAll('input[name="export-mode"]').forEach((r) => r.addEventListener('change', () => { showExportMsg(''); syncExportDialog(); }));
+  $('export-show').addEventListener('change', (e) => {
+    $('export-pw').type = $('export-pw2').type = e.target.checked ? 'text' : 'password';
+  });
+  $('export-dialog').addEventListener('click', (e) => { if (e.target === $('export-dialog')) closeExportDialog(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('export-dialog').hidden) closeExportDialog(); });
   $('reset-all').addEventListener('click', resetAll);
 
   /* ---------- 앱 설치 안내 ---------- */
