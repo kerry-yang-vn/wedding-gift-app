@@ -79,6 +79,13 @@
     .amount-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
     .amt { min-height: 68px; font-size: 24px; font-weight: 800; background: var(--sun); border: 2px solid var(--sun-line); }
     .amt:active { transform: scale(.97); background: #ffe39a; }
+    .custom-open { width: 100%; min-height: 52px; margin-bottom: 8px; border-style: dashed; border-color: var(--sun-line); color: var(--ink); }
+    .custom-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 4px; }
+    .custom-row[hidden], .custom-preview[hidden] { display: none; }
+    .custom-row input { min-height: 56px; }
+    .custom-add { min-height: 56px; padding: 0 18px; background: var(--navy); color: #fff; font-weight: 800; font-size: 18px; }
+    .custom-cancel { min-height: 56px; padding: 0 14px; }
+    .custom-preview { margin: 0 0 8px; color: var(--mute); font-weight: 600; font-size: 15px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .ghost { min-height: 48px; border: 2px solid var(--line); background: #fff; font-weight: 600; }
 
@@ -191,6 +198,13 @@
           <div id="amount-formula" class="formula"></div>
         </div>
         <div class="amount-grid" id="amount-grid"></div>
+        <button type="button" id="custom-open" class="ghost custom-open">직접 입력</button>
+        <div class="custom-row" id="custom-row" hidden>
+          <input type="text" id="custom-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="금액(원) 예: 20000" aria-label="직접 입력 금액(원)">
+          <button type="button" id="custom-add" class="custom-add">더하기</button>
+          <button type="button" id="custom-cancel" class="ghost custom-cancel">닫기</button>
+        </div>
+        <p class="custom-preview" id="custom-preview" hidden></p>
         <div class="row">
           <button type="button" id="undo" class="ghost">마지막 취소</button>
           <button type="button" id="clear" class="ghost">금액 초기화</button>

@@ -23,6 +23,14 @@
     return taps.reduce((acc, v) => acc + v, 0);
   }
 
+  // 직접 입력 문자열 → 양의 정수(원). 쉼표·공백·"원"은 무시하고, 숫자 외 문자나 0/빈 값은 null
+  function parseAmountInput(raw) {
+    const t = String(raw == null ? '' : raw).replace(/[,\s원]/g, '');
+    if (!/^\d{1,12}$/.test(t)) return null;
+    const n = Number(t);
+    return n > 0 ? n : null;
+  }
+
   function formatWon(amount) {
     const n = Math.trunc(Number(amount) || 0);
     return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원';
@@ -253,6 +261,7 @@
     MAX_AMOUNT,
     MAX_NAME_LENGTH,
     sumTaps,
+    parseAmountInput,
     formatWon,
     formatMan,
     clampMeals,

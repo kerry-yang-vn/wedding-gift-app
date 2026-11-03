@@ -423,6 +423,38 @@
     $('amount-grid').append(btn);
   });
 
+  /* 직접 입력: 4개 버튼에 없는 금액(예: 2만, 25,000원)을 같은 방식으로 누적한다 */
+  function setCustomOpen(open) {
+    $('custom-row').hidden = !open;
+    $('custom-open').hidden = open;
+    $('custom-input').value = '';
+    $('custom-preview').hidden = true;
+    if (open) $('custom-input').focus();
+  }
+
+  function addCustom() {
+    const v = L.parseAmountInput($('custom-input').value);
+    if (!v) { $('form-msg').textContent = '금액을 숫자로 입력해 주세요. (예: 20000)'; return; }
+    if (currentAmount() + v > L.MAX_AMOUNT) {
+      $('form-msg').textContent = `축의금은 ${L.formatWon(L.MAX_AMOUNT)} 이하로 입력해 주세요.`;
+      return;
+    }
+    $('form-msg').textContent = '';
+    form.taps.push(v);
+    renderForm();
+    setCustomOpen(false);
+  }
+
+  $('custom-open').addEventListener('click', () => setCustomOpen(true));
+  $('custom-cancel').addEventListener('click', () => setCustomOpen(false));
+  $('custom-add').addEventListener('click', addCustom);
+  $('custom-input').addEventListener('input', () => {
+    const v = L.parseAmountInput($('custom-input').value);
+    $('custom-preview').hidden = !v;
+    if (v) $('custom-preview').textContent = `= ${L.formatWon(v)}`;
+  });
+  $('custom-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+
   document.querySelectorAll('[data-setup]').forEach((btn) =>
     btn.addEventListener('click', () => chooseSide(btn.dataset.setup))
   );

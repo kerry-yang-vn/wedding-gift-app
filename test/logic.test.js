@@ -282,3 +282,15 @@ test('detectInstallMode: 맥 데스크톱/안드로이드/값 없음은 other', 
   assert.equal(L.detectInstallMode({ userAgent: 'Mozilla/5.0 (Linux; Android 14)' }), 'other');
   assert.equal(L.detectInstallMode(), 'other');
 });
+
+test('parseAmountInput: 직접 입력 금액 해석', () => {
+  assert.equal(L.parseAmountInput('20000'), 20000);
+  assert.equal(L.parseAmountInput(' 25,000원 '), 25000);
+  assert.equal(L.parseAmountInput('0'), null);
+  assert.equal(L.parseAmountInput(''), null);
+  assert.equal(L.parseAmountInput('-5000'), null);
+  assert.equal(L.parseAmountInput('1.5'), null);
+  assert.equal(L.parseAmountInput('2만'), null);
+  assert.equal(L.parseAmountInput(null), null);
+  assert.equal(L.parseAmountInput('9'.repeat(13)), null);
+});
